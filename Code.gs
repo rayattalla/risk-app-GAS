@@ -138,14 +138,113 @@ function sendMessageToAgent(q, conversationId) {
 
 function doGet(e) {
   const slug = e.parameter.agent || '';
-  const t = HtmlService.createTemplateFromFile('RiskChat');
-  t.agentSlug = slug;
-  return t.evaluate().setTitle('Risk AI').setSandboxMode(HtmlService.SandboxMode.IFRAME);
+  const user = getUser();
+  const isAdminUser = isAdmin(user);
+
+  if (slug) {
+    // Per-agent shareable chat URL: WebApp/exec?agent=slug
+    const t = HtmlService.createTemplateFromFile('RiskChat');
+    t.agentSlug = slug;
+    return t.evaluate().setTitle('Risk AI · ' + slug).setSandboxMode(HtmlService.SandboxMode.IFRAME);
+  } else if (isAdminUser) {
+    // Admin dashboard: base WebApp URL (no ?agent). Use Google auth (active user email).
+    // Only you (admin) see this when logged into your Google account.
+    const adminHtml = `
+      <h1>Risk AI - Admin</h1>
+      <p>Logged in as: <strong>${user}</strong> (admin)</p>
+      <h2>Create New Agent</h2>
+      <p>Fill in details. Slug will be used in the shareable URL: ?agent=slug</p>
+      <form onsubmit="createNewAgentFromForm(event)">
+        <label>Slug (URL friendly, e.g. my-agent): <input id="slug" required></label><br><br>
+        <label>Name: <input id="name" required></label><br><br>
+        <label>Personality (raw text - guardrail will be prepended automatically):<br>
+          <textarea id="personality" rows="8" cols="60" placeholder="You are a helpful security advisor..."></textarea>
+        </label><br><br>
+        <label>Privacy Level: 
+          <select id="privacy">
+            <option value="PUBLIC">PUBLIC (anyone with link can chat)</option>
+            <option value="PROTECTED">PROTECTED</option>
+            <option value="PRIVATE">PRIVATE (only creator/admin)</option>
+          </select>
+        </label><br><br>
+        <button type="submit">Create Agent & Generate URL</button>
+      </form>
+      <div id="createResult"></div>
+      <h2>Your Existing Agents</h2>
+      <button onclick="loadAgentList()">Refresh List</button>
+      <div id="agentList"></div>
+      <script>
+        function createNewAgentFromForm(e) {
+          e.preventDefault();
+          const slug = document.getElementById('slug').value.trim();
+          const name = document.getElementById('name').value.trim();
+          const personality = document.getElementById('personality').value.trim();
+          const privacy = document.getElementById('privacy').value;
+          google.script.run.withSuccessHandler(function(result) {
+            document.getElementById('createResult').innerHTML = '<p><strong>' + result + '</strong></p>' +
+              '<p>Shareable URL for this agent: <code>' + window.location.origin + window.location.pathname + '?agent=' + encodeURIComponent(slug) + '</code></p>';
+          }).createNewAgent(slug, name, personality, privacy);
+        }
+        function loadAgentList() {
+          google.script.run.withSuccessHandler(function(agents) {
+            let html = '<ul>';
+            agents.forEach(a => {
+              const url = window.location.origin + window.location.pathname + '?agent=' + encodeURIComponent(a.slug);
+              html += '<li><strong>' + a.name + '</strong> (slug: ' + a.slug + ') - <a href="' + url + '" target="_blank">Open Chat URL</a></li>';
+            });
+            html += '</ul>';
+            document.getElementById('agentList').innerHTML = html;
+          }).listAgents();
+        }
+        // Auto load list on admin page load
+        loadAgentList();
+      </script>
+    `;
+    return HtmlService.createHtmlOutput(adminHtml).setTitle('Risk AI Admin');
+  } else {
+    // Non-admin, no agent specified
+    return HtmlService.createHtmlOutput('<h1>Risk AI</h1><p>No agent specified. Ask the admin for a shareable link (e.g. ?agent=slug).</p>').setTitle('Risk AI');
+  }
+}
+
+/**
+ * Create a new agent (admin only). Adds to sheet and hardens (prepends guardrail).
+ * This is how you "deploy" new agents.
+ */
+function createNewAgent(slug, name, rawPersonality, privacyLevel) {
+  if (!isAdmin(getUser())) {
+    return 'Error: Only admin can create agents.';
+  }
+  const sheet = getSS().getSheetByName('Agents') || getSS().insertSheet('Agents');
+  // Basic headers if new sheet
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['slug', 'name', 'personality', 'privacy_level', 'creator', 'style_color', 'style_icon', 'input_tools', 'output_modes', 'managed_by_admin', 'is_hidden', 'created_at']);
+  }
+  const guardedPersonality = GUARDRAIL + (rawPersonality || '');
+  const creator = getUser();
+  sheet.appendRow([
+    slug,
+    name,
+    guardedPersonality,
+    privacyLevel || 'PUBLIC',
+    creator,
+    '#dc2626',
+    'shield',
+    '[]',
+    '["text"]',
+    false,
+    false,
+    new Date()
+  ]);
+  // Ensure guardrail is there (in case)
+  hardenAgent(slug);
+  return 'Agent created successfully. Shareable URL: ' + 
+         'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec?agent=' + encodeURIComponent(slug);
 }
 
 /**
  * Harden an agent by prepending the guardrail to its personality in the sheet.
- * Run this after adding new agents to enforce the security rules.
+ * Run this after adding new agents (or use createNewAgent which does it automatically).
  */
 function hardenAgent(slug) {
   const sheet = getSS().getSheetByName('Agents') || getSS().getActiveSheet();
