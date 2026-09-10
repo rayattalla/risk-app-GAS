@@ -1,0 +1,11 @@
+**/*.md
+**/*.txt
+**/.git*
+**/node_modules/**
+**/.env*
+**/*PASSWORD*
+**/*SECRET*
+**/*TOKEN*
+**/*API_KEY*
+**/.claude/**
+**/Claude-*/

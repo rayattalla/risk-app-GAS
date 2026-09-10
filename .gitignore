@@ -1,0 +1,51 @@
+﻿# Google Apps Script / clasp
+node_modules/
+.clasprc.json
+.env
+.env.*
+
+# Secrets & credentials (NEVER in git)
+*.pem
+*.key
+credentials*.json
+service-account*.json
+*PASSWORD*
+*SECRET*
+*TOKEN*
+*API_KEY*
+*.env.local
+
+# Data files & archives
+*.xlsx
+*.xls
+*.csv
+*.zip
+*.rar
+*.7z
+*.bak
+*.tmp
+*.json.backup
+comprehensive_jobs_backup.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# AI / Claude state (never commit)
+.claude/
+Claude-*/
+
+# Clutter from past experiments
+OLD/
+archive/
+deployment/
+*_backup*
+
+# Large media
+*.gif
+*.mp4
+*.mov

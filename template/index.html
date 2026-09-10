@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAUSD Agent Platform</title>
+  <script>
+    var SHELL_VERSION = <?= JSON.stringify(SHELL_VERSION) ?>;
+    var WEBAPP_URL = <?= JSON.stringify(WEBAPP_URL) ?>;
+    var ORG_NAME = <?= JSON.stringify(ORG_NAME) ?>;
+    var ORG_SHORT = <?= JSON.stringify(ORG_SHORT) ?>;
+    var PROGRAM_NAME = <?= JSON.stringify(PROGRAM_NAME) ?>;
+    var PROGRAM_SHORT = <?= JSON.stringify(PROGRAM_SHORT) ?>;
+    var AGENT_SLUG = <?= JSON.stringify(AGENT_SLUG) ?>;
+    var ADMIN_EMAIL = <?= JSON.stringify(ADMIN_EMAIL) ?>;
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: #F5F7FA; color: #1A1A2E; font-size: 15px; }
+    a { color: #0072CE; }
+    button { cursor: pointer; }
+
+    :root {
+      --blue: #0072CE; --dark-blue: #1A237E; --orange: #F47B20; --teal: #00A3E0;
+      --bg: #F5F7FA; --card: #fff; --border: #E8EAED; --muted: #5F6368;
+    }
+
+    #topbar {
+      background: var(--dark-blue); color: #fff; display: flex; align-items: center; gap: .75rem;
+      padding: 0 1rem; height: 52px; position: sticky; top: 0; z-index: 100;
+    }
+    #topbar .brand { font-weight: 600; letter-spacing: .5px; }
+    #topbar .sub { font-size: .75rem; opacity: .8; }
+
+    main { max-width: 820px; margin: 0 auto; padding: 1rem; display: flex; flex-direction: column; min-height: calc(100vh - 52px); }
+
+    .list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+    .agent-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px;
+      text-decoration: none; color: inherit; box-shadow: 0 1px 3px rgba(0,0,0,.05);
+    }
+    .agent-card:hover { border-color: var(--blue); }
+    .agent-card .name { font-weight: 600; font-size: 1.05rem; color: var(--dark-blue); }
+    .agent-card .slug { font-size: .8rem; color: var(--muted); margin-top: 2px; }
+
+    .chat-wrap { flex: 1; display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    #chat { flex: 1; padding: 16px; overflow-y: auto; background: #fafafa; display: flex; flex-direction: column; gap: 10px; }
+    .msg { max-width: 82%; padding: 9px 13px; border-radius: 14px; white-space: pre-wrap; line-height: 1.4; font-size: .95rem; }
+    .msg.user { align-self: flex-end; background: var(--blue); color: #fff; border-bottom-right-radius: 4px; }
+    .msg.assistant { align-self: flex-start; background: #f1f3f5; color: #1A1A2E; border-bottom-left-radius: 4px; }
+
+    .composer { border-top: 1px solid var(--border); padding: 10px; background: var(--card); }
+    .composer form { display: flex; gap: 8px; }
+    #input { flex: 1; padding: 10px 14px; border: 1px solid var(--border); border-radius: 999px; font-size: 15px; outline: none; }
+    #send { padding: 0 18px; border: none; background: var(--dark-blue); color: #fff; border-radius: 999px; font-weight: 600; }
+
+    .agent-header { padding: 12px 16px; border-bottom: 1px solid var(--border); background: #fff; font-weight: 600; }
+    .muted { color: var(--muted); font-size: .85rem; }
+
+    .err { color: #c00; font-size: .85rem; padding: 6px 10px; }
+
+    footer { text-align: center; font-size: 11px; color: var(--muted); padding: 12px; }
+  </style>
+</head>
+<body>
+  <div id="topbar">
+    <div>
+      <div class="brand">LAUSD <strong>AGENTS</strong></div>
+      <div class="sub">Security 2nd Brain</div>
+    </div>
+    <div style="flex:1"></div>
+    <div id="who" class="muted" style="font-size:12px"></div>
+    <div id="admin-link" style="margin-left:12px; font-size:12px; display:none"><a href="?page=admin" style="color:#fff; text-decoration:underline">Admin</a></div>
+  </div>
+
+  <main>
+    <div id="agent-list" style="display:none">
+      <h2 style="margin:4px 0 12px;font-size:1.1rem">Available Agents</h2>
+      <div id="agents" class="list"></div>
+      <p class="muted" style="margin-top:16px">Pick an agent or use <code>?agent=slug</code> in the URL.</p>
+    </div>
+
+    <div id="chat-ui" style="display:none; flex:1; flex-direction:column">
+      <div class="agent-header">
+        <span id="agent-name"></span>
+        <span id="agent-slug" class="muted" style="margin-left:8px;font-size:12px"></span>
+      </div>
+
+      <div class="chat-wrap" style="flex:1">
+        <div id="chat"></div>
+        <div class="composer">
+          <form id="form" autocomplete="off">
+            <input id="input" type="text" placeholder="Type your question..." />
+            <button id="send" type="submit">Send</button>
+          </form>
+          <div style="text-align:right;margin-top:6px">
+            <a href="#" id="email-transcript" class="muted" style="font-size:12px">Email me this chat</a>
+            <span class="muted" style="font-size:12px"> &middot; </span>
+            <a href="#" id="forget-me" class="muted" style="font-size:12px">Forget what you remember about me</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="loading" class="muted" style="margin:20px 0">Loading…</div>
+    <div id="err" class="err" style="display:none"></div>
+    <details style="margin-top:12px">
+      <summary style="cursor:pointer;color:var(--muted)">Diagnostics</summary>
+      <pre id="diag" style="background:#f1f3f5;padding:10px;border-radius:8px;overflow:auto;max-height:400px;font-size:12px"></pre>
+    </details>
+  </main>
+
+  <footer>
+    LAUSD Agent Platform • <span id="footer-version"></span> • Use responsibly
+  </footer>
+
+<script>
+// Injected globals from doGet via <head> script block (var declarations).
+// Do NOT redeclare AGENT_SLUG (or other injected vars) as const/let here —
+// that causes SyntaxError at parse time and prevents init() from running.
+const chatEl = () => document.getElementById('chat');
+const formEl = () => document.getElementById('form');
+const inputEl = () => document.getElementById('input');
+let currentSlug = (typeof AGENT_SLUG !== 'undefined' && AGENT_SLUG) ? AGENT_SLUG : '';
+let history = [];
+let agentInfo = null;
+
+function showError(msg) {
+  const e = document.getElementById('err');
+  if (e) {
+    e.textContent = msg;
+    e.style.display = 'block';
+  }
+}
+
+function setLoading(on) {
+  const el = document.getElementById('loading');
+  if (el) el.style.display = on ? 'block' : 'none';
+}
+
+function addMessage(role, text) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + (role === 'user' ? 'user' : 'assistant');
+  div.textContent = text;
+  chatEl().appendChild(div);
+  chatEl().scrollTop = chatEl().scrollHeight;
+}
+
+function renderAgentHeader(info) {
+  document.getElementById('agent-name').textContent = info.name || info.slug;
+  document.getElementById('agent-slug').textContent = info.slug;
+}
+
+function loadAgentList() {
+  setLoading(true);
+  var loaded = false;
+  var watchdog = setTimeout(function() {
+    if (!loaded) {
+      showError('Could not load agents: timeout (15s) — check server or network');
+      setLoading(false);
+    }
+  }, 15000);
+  google.script.run
+    .withSuccessHandler(function(res) {
+      loaded = true;
+      clearTimeout(watchdog);
+      try {
+        if (!res || !res.ok) {
+          showError('Could not load agents: ' + (res && res.error || 'Failed to load agents'));
+          return;
+        }
+        const container = document.getElementById('agents');
+        container.innerHTML = '';
+        (res.agents || []).forEach(a => {
+          const card = document.createElement('a');
+          card.className = 'agent-card';
+          card.href = '?agent=' + encodeURIComponent(a.slug);
+          card.innerHTML = `<div class="name">${a.name || a.slug}</div><div class="slug">${a.slug}</div>`;
+          container.appendChild(card);
+        });
+        document.getElementById('agent-list').style.display = 'block';
+      } catch (e) {
+        showError('Could not load agents: ' + e.message);
+      } finally {
+        setLoading(false);
+      }
+    })
+    .withFailureHandler(function(err) {
+      loaded = true;
+      clearTimeout(watchdog);
+      showError('Could not load agents: ' + (err && err.message || String(err) || 'unknown error from server'));
+      setLoading(false);
+      try { showDiagnostics(); } catch (_) {}
+    })
+    .listAgents();
+}
+
+function loadAgent(slug) {
+  if (!slug) { loadAgentList(); return; }
+  setLoading(true);
+  var loaded = false;
+  var watchdog = setTimeout(function() {
+    if (!loaded) {
+      showError('Agent load failed: timeout (15s)');
+      loadAgentList();
+      setLoading(false);
+    }
+  }, 15000);
+  google.script.run
+    .withSuccessHandler(function(res) {
+      loaded = true;
+      clearTimeout(watchdog);
+      try {
+        if (!res || !res.ok || !res.agent) {
+          showError('Agent load failed: ' + (res && res.error || 'Agent not available'));
+          loadAgentList();
+          return;
+        }
+        agentInfo = res.agent;
+        currentSlug = slug;
+        renderAgentHeader(agentInfo);
+        document.getElementById('chat-ui').style.display = 'flex';
+        document.getElementById('agent-list').style.display = 'none';
+        // optional: greet
+        if (agentInfo.personality) {
+          // don't show full personality
+        }
+      } catch (e) {
+        showError('Agent load failed: ' + e.message);
+        loadAgentList();
+      } finally {
+        setLoading(false);
+      }
+    })
+    .withFailureHandler(function(err) {
+      loaded = true;
+      clearTimeout(watchdog);
+      showError('Agent load failed: ' + (err && err.message || String(err) || 'unknown error'));
+      loadAgentList();
+      setLoading(false);
+      try { showDiagnostics(); } catch (_) {}
+    })
+    .getAgent(slug);
+}
+
+async function send(text) {
+  if (!currentSlug || !text.trim()) return;
+  addMessage('user', text);
+  history.push({ role: 'user', content: text });
+  inputEl().value = '';
+  setLoading(true);
+
+  try {
+    const res = await new Promise((resolve, reject) => {
+      google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(reject)
+        .sendMessage(currentSlug, history, text);
+    });
+    if (!res || !res.ok) throw new Error(res && res.error || 'No reply');
+    const reply = res.reply || '(no response)';
+    addMessage('assistant', reply);
+    history.push({ role: 'assistant', content: reply });
+  } catch (e) {
+    addMessage('assistant', 'Error: ' + e.message);
+  } finally {
+    setLoading(false);
+    inputEl().focus();
+  }
+}
+
+function init() {
+  try {
+    // whoami
+    try {
+      const email = (typeof google !== 'undefined' && google.script && google.script.host) ? '' : '';
+      document.getElementById('who').textContent = '';
+    } catch (_) {}
+
+    const footer = document.getElementById('footer-version');
+    if (footer) footer.textContent = (typeof SHELL_VERSION !== 'undefined' ? SHELL_VERSION : '');
+
+    const form = document.getElementById('form');
+    if (form) {
+      form.addEventListener('submit', function(ev) {
+        ev.preventDefault();
+        const val = inputEl().value.trim();
+        if (val) send(val);
+      });
+    }
+
+    const emailLink = document.getElementById('email-transcript');
+    if (emailLink) {
+      emailLink.addEventListener('click', function(ev) {
+        ev.preventDefault();
+        if (!history.length) { showError('Nothing to email yet.'); return; }
+        emailLink.textContent = 'Sending...';
+        google.script.run
+          .withSuccessHandler(function(res) {
+            emailLink.textContent = (res && res.ok) ? 'Sent to your inbox' : ('Failed: ' + (res && res.error));
+            setTimeout(function() { emailLink.textContent = 'Email me this chat'; }, 4000);
+          })
+          .withFailureHandler(function(err) {
+            emailLink.textContent = 'Failed: ' + (err && err.message || String(err));
+            setTimeout(function() { emailLink.textContent = 'Email me this chat'; }, 4000);
+          })
+          .emailTranscript(currentSlug, history);
+      });
+    }
+
+    const forgetLink = document.getElementById('forget-me');
+    if (forgetLink) {
+      forgetLink.addEventListener('click', function(ev) {
+        ev.preventDefault();
+        if (!confirm('Clear anything this agent remembers about you from past sessions?')) return;
+        forgetLink.textContent = 'Clearing...';
+        google.script.run
+          .withSuccessHandler(function(res) {
+            forgetLink.textContent = (res && res.ok) ? 'Cleared' : ('Failed: ' + (res && res.error));
+            setTimeout(function() { forgetLink.textContent = 'Forget what you remember about me'; }, 4000);
+          })
+          .withFailureHandler(function(err) {
+            forgetLink.textContent = 'Failed: ' + (err && err.message || String(err));
+            setTimeout(function() { forgetLink.textContent = 'Forget what you remember about me'; }, 4000);
+          })
+          .clearMyMemory(currentSlug);
+      });
+    }
+
+    if (currentSlug) {
+      loadAgent(currentSlug);
+    } else {
+      loadAgentList();
+    }
+
+    // show Admin link for admins
+    checkShowAdminLink();
+
+    // keyboard hint
+    const input = document.getElementById('input');
+    if (input) input.focus();
+  } catch (e) {
+    console.error('init error', e);
+    // still try to hide loading
+    setLoading(false);
+  }
+}
+
+function checkShowAdminLink() {
+  google.script.run
+    .withSuccessHandler(function(isAdmin) {
+      if (isAdmin) {
+        const el = document.getElementById('admin-link');
+        if (el) el.style.display = 'inline-block';
+      }
+    })
+    .withFailureHandler(function(_) {})
+    .isCurrentUserAdmin();
+}
+
+function showDiagnostics() {
+  document.getElementById('diag').textContent = 'Running…';
+  google.script.run
+    .withSuccessHandler(function(res) {
+      document.getElementById('diag').textContent = JSON.stringify(res, null, 2);
+    })
+    .withFailureHandler(function(err) {
+      document.getElementById('diag').textContent = 'Diagnostics failed: ' + (err && err.message || String(err));
+    })
+    .runDiagnostics();
+}
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

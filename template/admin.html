@@ -1,0 +1,113 @@
+<!doctype html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body { font-family: system-ui, sans-serif; font-size: 13px; margin: 8px; }
+    .row { margin-bottom: 6px; }
+    label { display: block; font-weight: 600; margin-bottom: 2px; }
+    input, textarea, select { width: 100%; box-sizing: border-box; padding: 4px; font-size: 12px; }
+    textarea { height: 80px; }
+    button { margin-right: 4px; padding: 4px 8px; }
+    .agents { margin-top: 12px; }
+    .agent { border: 1px solid #ccc; padding: 4px; margin-bottom: 4px; cursor: pointer; }
+    .agent:hover { background: #f0f0f0; }
+    .msg { color: #666; font-size: 11px; }
+  </style>
+</head>
+<body>
+  <h3>Agent Admin</h3>
+  <div id="form">
+    <div class="row"><label>Slug</label><input id="slug"></div>
+    <div class="row"><label>Name</label><input id="name"></div>
+    <div class="row"><label>Status</label>
+      <select id="status"><option>on</option><option>off</option></select>
+    </div>
+    <div class="row"><label>Org</label><input id="org" value="LAUSD"></div>
+    <div class="row"><label>Model (optional)</label><input id="model"></div>
+    <div class="row"><label>KB Tags (optional filter)</label><input id="kb_tags" placeholder="e.g. policy,shared or leave blank"></div>
+    <div class="row"><label>Personality / Charter (system prompt)</label>
+      <textarea id="personality"></textarea>
+    </div>
+    <div class="row"><label>Tone (short style note, e.g. "warm, patient, no jargon")</label><input id="tone"></div>
+    <div class="row"><label>Skills (comma list: kb, webpage, search, email, memory)</label>
+      <input id="skills" placeholder="kb,webpage,email,memory">
+      <div class="msg">kb = use Knowledge Base tab · webpage = fetch a URL the user pastes · search = live web search on "search: &lt;query&gt;" (needs a Serper key, see Setup menu) · email = "Email me this chat" button · memory = remember durable facts about a returning user across sessions (needs Memory &rarr; Install Hourly Memory Trigger, see menu)</div>
+    </div>
+    <div class="row"><label>Notes</label><input id="notes"></div>
+    <button onclick="save()">Save</button>
+    <button onclick="del()">Delete</button>
+    <button onclick="loadList()">Refresh List</button>
+    <div id="msg" class="msg"></div>
+  </div>
+
+  <div class="agents">
+    <strong>Existing Agents</strong>
+    <div id="list"></div>
+  </div>
+
+<script>
+function loadList() {
+  google.script.run.withSuccessHandler(function(res) {
+    if (res.error) { document.getElementById('msg').innerText = res.error; return; }
+    const list = document.getElementById('list');
+    list.innerHTML = '';
+    (res.agents || []).forEach(a => {
+      const div = document.createElement('div');
+      div.className = 'agent';
+      div.innerText = a.slug + ' (' + a.status + ') - ' + a.name;
+      div.onclick = () => loadAgent(a);
+      list.appendChild(div);
+    });
+  }).getAgentsForAdmin();
+}
+
+function loadAgent(a) {
+  document.getElementById('slug').value = a.slug || '';
+  document.getElementById('name').value = a.name || '';
+  document.getElementById('status').value = a.status || 'on';
+  document.getElementById('org').value = a.org || 'LAUSD';
+  document.getElementById('model').value = a.model || '';
+  document.getElementById('kb_tags').value = a.kb_tags || '';
+  document.getElementById('personality').value = a.personality || '';
+  document.getElementById('tone').value = a.tone || '';
+  document.getElementById('skills').value = a.skills || '';
+  document.getElementById('notes').value = a.notes || '';
+}
+
+function save() {
+  const agent = {
+    slug: document.getElementById('slug').value.trim(),
+    name: document.getElementById('name').value.trim(),
+    status: document.getElementById('status').value,
+    org: document.getElementById('org').value.trim(),
+    model: document.getElementById('model').value.trim(),
+    personality: document.getElementById('personality').value.trim(),
+    kb_tags: document.getElementById('kb_tags').value.trim(),
+    tone: document.getElementById('tone').value.trim(),
+    skills: document.getElementById('skills').value.trim(),
+    notes: document.getElementById('notes').value.trim()
+  };
+  if (!agent.slug) { document.getElementById('msg').innerText = 'slug required'; return; }
+  google.script.run.withSuccessHandler(function(res) {
+    document.getElementById('msg').innerText = res.message || res.error || 'done';
+    loadList();
+  }).saveAgent(agent);
+}
+
+function del() {
+  const slug = document.getElementById('slug').value.trim();
+  if (!slug) return;
+  if (!confirm('Delete ' + slug + '?')) return;
+  google.script.run.withSuccessHandler(function(res) {
+    document.getElementById('msg').innerText = res.success ? 'deleted' : (res.error || 'error');
+    loadList();
+    // clear form
+    document.querySelectorAll('#form input, #form textarea, #form select').forEach(el => el.value='');
+  }).deleteAgent(slug);
+}
+
+window.onload = loadList;
+</script>
+</body>
+</html>
