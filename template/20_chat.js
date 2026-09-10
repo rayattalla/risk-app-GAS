@@ -255,8 +255,15 @@ function _logChat_(entry) {
     if (!sheet) {
       sheet = ss.insertSheet('ChatLog');
       sheet.appendRow(['Timestamp','Email','Slug','Model','Prompt',
-                       'Response','Status','Error','DurationMs']);
+                       'Response','Status','Error','DurationMs','Skills']);
       sheet.setFrozenRows(1);
+    } else {
+      // Backfill 'Skills' column for ChatLog sheets created before this field existed.
+      var lastCol = sheet.getLastColumn();
+      var headers = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
+      if (headers.indexOf('Skills') < 0) {
+        sheet.getRange(1, lastCol + 1).setValue('Skills');
+      }
     }
     sheet.appendRow([
       new Date(),
@@ -267,7 +274,8 @@ function _logChat_(entry) {
       entry.response || '',
       entry.status || '',
       entry.error || '',
-      entry.durationMs || ''
+      entry.durationMs || '',
+      entry.skills || ''
     ]);
   } catch (e) {
     // Logging must never break the user-facing call.

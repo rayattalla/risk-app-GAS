@@ -338,16 +338,30 @@ function sendMessage(slug, history, text) {
 
   if (!slug) return { ok: false, error: 'Missing agent slug' };
 
+  // Look up model + skills once, purely for ChatLog visibility (chatWithAgent_
+  // re-reads the agent row itself; this extra read is cheap and never blocks a reply).
+  var agentModel = '';
+  var agentSkills = '';
+  try {
+    var aRes = getAgent(slug);
+    if (aRes && aRes.ok) {
+      agentModel = aRes.agent.model || DEFAULT_MODEL;
+      agentSkills = aRes.agent.skills || DEFAULT_SKILLS.join(',');
+    }
+  } catch (e) {}
+
   try {
     var reply = chatWithAgent_(slug, history, text, email);
     _logChat_({
-      email: email, slug: slug, model: '', prompt: text, response: reply,
+      email: email, slug: slug, model: agentModel, skills: agentSkills,
+      prompt: text, response: reply,
       status: 'ok', durationMs: Date.now() - started
     });
     return { ok: true, reply: reply };
   } catch (e) {
     _logChat_({
-      email: email, slug: slug, model: '', prompt: text, response: '',
+      email: email, slug: slug, model: agentModel, skills: agentSkills,
+      prompt: text, response: '',
       status: 'error', error: e.message || String(e),
       durationMs: Date.now() - started
     });
