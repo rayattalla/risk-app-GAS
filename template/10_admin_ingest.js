@@ -226,58 +226,9 @@ function _getBuiltinPack(pack) {
 }
 
 // ==========================================================================
-// ADMIN SIDEBAR
+// Agent CRUD is sheet-driven only (no admin web UI) — edit the Agents tab
+// directly. listAgents()/getAgent() in shell.js already read it live.
 // ==========================================================================
-
-function openAdmin() {
-  if (!_isAdminUser_()) { _toast_('Admin only'); return; }
-  const html = HtmlService.createHtmlOutputFromFile('admin')
-    .setTitle('Agent Admin')
-    .setWidth(420);
-  SpreadsheetApp.getUi().showSidebar(html);
-}
-
-function getAgentsForAdmin() {
-  if (!_isAdminUser_()) return {error: 'Admin only'};
-  const sheet = _getSs_().getSheetByName('Agents');
-  if (!sheet || sheet.getLastRow() < 2) return {agents: []};
-  const data = sheet.getRange(2, 1, sheet.getLastRow()-1, 10).getValues();
-  const agents = data.map(r => ({
-    slug: r[0], name: r[1], status: r[2], org: r[3], model: r[4],
-    personality: r[5], kb_tags: r[6], notes: r[7], skills: r[8] || '', tone: r[9] || ''
-  }));
-  return {agents};
-}
-
-function saveAgent(agent) {
-  if (!_isAdminUser_()) return {error: 'Admin only'};
-  if (!agent.slug) return {error: 'slug required'};
-  const sheet = _getOrCreateTab_('Agents', ['slug','name','status','org','model','personality','kb_tags','notes','skills','tone']);
-  const data = sheet.getDataRange().getValues();
-  const row = [agent.name, agent.status, agent.org, agent.model, agent.personality, agent.kb_tags, agent.notes, agent.skills || '', agent.tone || ''];
-  for (let i=1; i<data.length; i++) {
-    if (data[i][0] === agent.slug) {
-      sheet.getRange(i+1, 2, 1, row.length).setValues([row]);
-      return {success: true, message: 'Updated ' + agent.slug};
-    }
-  }
-  sheet.appendRow([agent.slug].concat(row));
-  return {success: true, message: 'Created ' + agent.slug};
-}
-
-function deleteAgent(slug) {
-  if (!_isAdminUser_()) return {error: 'Admin only'};
-  const sheet = _getSs_().getSheetByName('Agents');
-  if (!sheet) return {error: 'no sheet'};
-  const data = sheet.getDataRange().getValues();
-  for (let i=1; i<data.length; i++) {
-    if (data[i][0] === slug) {
-      sheet.deleteRow(i+1);
-      return {success: true};
-    }
-  }
-  return {error: 'not found'};
-}
 
 // Set OpenRouter key via menu (prompts for key, stores in Properties)
 function menuSetOpenRouterKey() {

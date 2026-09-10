@@ -70,7 +70,6 @@
     </div>
     <div style="flex:1"></div>
     <div id="who" class="muted" style="font-size:12px"></div>
-    <div id="admin-link" style="margin-left:12px; font-size:12px; display:none"><a href="?page=admin" style="color:#fff; text-decoration:underline">Admin</a></div>
   </div>
 
   <main>
@@ -333,9 +332,6 @@ function init() {
       loadAgentList();
     }
 
-    // show Admin link for admins
-    checkShowAdminLink();
-
     // keyboard hint
     const input = document.getElementById('input');
     if (input) input.focus();
@@ -344,18 +340,6 @@ function init() {
     // still try to hide loading
     setLoading(false);
   }
-}
-
-function checkShowAdminLink() {
-  google.script.run
-    .withSuccessHandler(function(isAdmin) {
-      if (isAdmin) {
-        const el = document.getElementById('admin-link');
-        if (el) el.style.display = 'inline-block';
-      }
-    })
-    .withFailureHandler(function(_) {})
-    .isCurrentUserAdmin();
 }
 
 function showDiagnostics() {

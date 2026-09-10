@@ -43,7 +43,6 @@ function onOpen() {
         .addItem('Seed Full Reference KB (8 core docs)', 'seedReferenceKB_')
         .addItem('Backfill Agent Tone (from personas)', 'backfillAgentTone_')
         .addItem('Recommend Agent Skills (webpage/search/email)', 'upgradeAgentSkills_')
-        .addItem('Open Admin', 'openAdmin')
         .addItem('Set OpenRouter LLM Key', 'menuSetOpenRouterKey')
         .addItem('Set Web Search API Key (Serper)', 'menuSetSearchKey')
         .addItem('Migrate Agents (add skills/tone columns)', 'migrateAgentsAddSkillsTone_')
@@ -188,7 +187,6 @@ function openWebApp() {
 function doGet(e) {
   e = e || {};
   const params = e.parameter || {};
-  const page = String(params.page || '').toLowerCase().trim();
   const agentSlug = String(params.agent || '').trim().replace(/[^a-z0-9-]/gi, '').toLowerCase();
 
   // Access gate for pilot: domain-based only (no getMyAccess; inlined, no library).
@@ -204,16 +202,6 @@ function doGet(e) {
     role = 'Editor';
   }
   if (!role) return _denyPage_();
-
-  if (page === 'admin') {
-    if (me !== adminEmail) return _admin403Page_();
-    // serve admin.html as full page (no heavy inject needed)
-    const adminHtml = HtmlService.createHtmlOutputFromFile('admin')
-      .setTitle('Admin — ' + PROGRAM_SHORT)
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
-      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
-    return adminHtml;
-  }
 
   // normal chat UI
   // Web app URL
@@ -262,30 +250,6 @@ function _denyPage_() {
     + '</div></body></html>';
   return HtmlService.createHtmlOutput(html)
     .setTitle(PROGRAM_NAME + ' — Access Restricted')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-}
-
-function _admin403Page_() {
-  let who = '';
-  try { who = Session.getActiveUser().getEmail() || ''; } catch (e) {}
-  const safe = String(who).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const grad = 'linear-gradient(90deg,#F47B20,#ED1C24,#0072CE,#00A3E0,#5B6CB0)';
-  const html = '<!doctype html><html><head><meta charset="utf-8"><title>Admin Access Required</title>'
-    + '<style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#F5F7FA;margin:0;padding:0}'
-    + '.box{max-width:520px;margin:10vh auto;background:#fff;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.08);padding:2rem;text-align:center}'
-    + '.bar{height:6px;background:' + grad + ';border-radius:12px 12px 0 0;margin:-2rem -2rem 1.5rem}'
-    + 'h1{font-size:1.25rem;color:#1A237E;margin-bottom:.4rem}'
-    + 'p{color:#5F6368;font-size:.92rem;line-height:1.6;margin:.4rem 0}'
-    + '.em{font-family:monospace;background:#F0F4F8;padding:.1rem .4rem;border-radius:4px}'
-    + 'a{color:#0072CE}</style></head><body>'
-    + '<div class="box"><div class="bar"></div>'
-    + '<h1>&#128274; Admin Only</h1>'
-    + '<p>This page is restricted to administrators.</p>'
-    + '<p>Signed in as <span class="em">' + safe + '</span>.</p>'
-    + '<p>Contact the platform admin if you need admin access.</p>'
-    + '</div></body></html>';
-  return HtmlService.createHtmlOutput(html)
-    .setTitle(PROGRAM_NAME + ' — Admin Only')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
