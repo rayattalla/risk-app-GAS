@@ -559,6 +559,10 @@ function getAgent(slug) {
 // ==========================================================================
 
 function runDiagnostics() {
+  // Client-side hiding of the Diagnostics panel is not a security boundary --
+  // google.script.run is callable directly from devtools by any signed-in
+  // user regardless of what the UI shows. Gate it here too.
+  if (!isCurrentUserAdmin()) return { ok: false, error: 'Admin only.' };
   var out = {
     ok: true,
     sheetId: SHEET_ID,
