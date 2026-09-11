@@ -154,10 +154,114 @@ function menuCheckModes() {
 
 function menuRunTests() {
   if (!_shellIsAdmin_()) { _toast_('Admin only.'); return; }
-  _toast_('Running tests… (may take 10-30s)');
-  // Add your own test runner call here:
-  // const res = 'tests removed for pilot';
-  _toast_('No tests registered yet. Add a runAllTests() to the library.');
+  _toast_('Running full diagnostic test… writing to Debug_Test tab');
+  runFullDiagnosticTest_();
+  _toast_('Done. See the Debug_Test tab.');
+}
+
+// Writes a full, plain-text diagnostic dump to a 'Debug_Test' tab so results
+// can be copy/pasted out without needing to read Stackdriver logs. Exercises
+// the exact same code path the web app uses (getSheetByName, header mapping,
+// listAgents/getAgent), so whatever it reports is the real live behavior.
+function runFullDiagnosticTest_() {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  let dbg = ss.getSheetByName('Debug_Test');
+  if (dbg) { dbg.clear(); } else { dbg = ss.insertSheet('Debug_Test'); }
+  dbg.getRange(1, 1, 1, 3).setValues([['Check', 'Detail', 'Result']]);
+  dbg.setFrozenRows(1);
+
+  const rows = [];
+  function log(check, detail, result) {
+    rows.push([check, detail, typeof result === 'string' ? result : JSON.stringify(result)]);
+  }
+
+  // Reveal invisible characters (non-breaking space, zero-width, etc.) that
+  // .trim() would NOT catch, by showing raw char codes for a string.
+  function codes(s) {
+    s = String(s || '');
+    const cc = [];
+    for (let i = 0; i < s.length; i++) cc.push(s.charCodeAt(i));
+    return s + '  [len=' + s.length + ' codes=' + cc.join(',') + ']';
+  }
+
+  try {
+    log('Sheet ID', SHEET_ID, 'opening...');
+    const tabs = ss.getSheets().map(s => s.getName());
+    log('All tabs', '', tabs);
+
+    const aSheet = ss.getSheetByName('Agents');
+    log('Agents tab found', '', !!aSheet);
+
+    if (aSheet) {
+      const aData = aSheet.getDataRange().getValues();
+      const headersRaw = aData[0] || [];
+      log('Agents headers (raw)', '', headersRaw.map(h => codes(h)));
+
+      const map = {};
+      headersRaw.forEach((h, i) => { if (h) map[String(h).trim().toLowerCase()] = i; });
+      log('Agents header map', '', map);
+      log('Agents row count', '', Math.max(0, aData.length - 1));
+
+      // Every row's slug/status, with hidden-char inspection, exactly as
+      // getAgent()/listAgents() would read them.
+      for (let i = 1; i < aData.length; i++) {
+        const row = aData[i];
+        const rawSlug = row[map.slug];
+        const rawStatus = row[map.status];
+        log('Row ' + i + ' slug (raw)', '', codes(rawSlug));
+        log('Row ' + i + ' status (raw)', '', codes(rawStatus));
+      }
+    }
+
+    log('--- listAgents() ---', '', '');
+    const listRes = listAgents();
+    log('listAgents() result', '', listRes);
+
+    if (listRes && listRes.ok && listRes.agents) {
+      listRes.agents.forEach(a => {
+        log('--- getAgent(' + a.slug + ') ---', 'input slug (raw)', codes(a.slug));
+        const g = getAgent(a.slug);
+        log('getAgent(' + a.slug + ') result', '', g);
+      });
+    }
+
+    const kSheet = ss.getSheetByName('KB');
+    log('KB tab found', '', !!kSheet);
+    if (kSheet) {
+      const kData = kSheet.getDataRange().getValues();
+      log('KB headers', '', (kData[0] || []).map(h => String(h || '').trim()));
+      log('KB row count', '', Math.max(0, kData.length - 1));
+    }
+
+    const clSheet = ss.getSheetByName('ChatLog');
+    log('ChatLog tab found', '', !!clSheet);
+    if (clSheet) {
+      log('ChatLog headers', '', clSheet.getRange(1, 1, 1, clSheet.getLastColumn()).getValues()[0]);
+      log('ChatLog row count', '', Math.max(0, clSheet.getLastRow() - 1));
+    }
+
+    log('AI_KEY_OPENROUTER set?', '', !!PropertiesService.getScriptProperties().getProperty('AI_KEY_OPENROUTER'));
+    log('SEARCH_API_KEY_SERPER set?', '', !!PropertiesService.getScriptProperties().getProperty('SEARCH_API_KEY_SERPER'));
+
+    let me = '';
+    try { me = Session.getActiveUser().getEmail() || ''; } catch (e) {}
+    log('Session.getActiveUser()', '', me);
+    log('ADMIN_EMAIL', '', ADMIN_EMAIL);
+    log('isCurrentUserAdmin()', '', isCurrentUserAdmin());
+
+    let webUrl = '';
+    try { webUrl = ScriptApp.getService().getUrl() || ''; } catch (e) {}
+    log('ScriptApp.getService().getUrl()', '', webUrl);
+
+  } catch (e) {
+    log('FATAL ERROR', '', e.message || String(e));
+    log('FATAL STACK', '', e.stack || '');
+  }
+
+  if (rows.length) {
+    dbg.getRange(2, 1, rows.length, 3).setValues(rows);
+  }
+  dbg.autoResizeColumns(1, 3);
 }
 
 function openWebApp() {
