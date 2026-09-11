@@ -38,6 +38,7 @@ function onOpen() {
         .addItem('Seed all 15 Risk agents', 'seedAllRiskAgents_')
         .addItem('Ingest URL / paste / Drive file', 'menuIngest')
         .addItem('Ingest built-in ITS packs', 'menuIngestBuiltin')
+        .addItem('Ingest Drive Folder (PDF/txt/md/Docs)', 'menuIngestDriveFolder_')
         .addItem('Migrate KB tabs to single KB', 'migrateKbToSingleSheet_')
         .addItem('Cleanup old KB tabs (shipping)', 'cleanupOldKbTabs_')
         .addItem('Seed Full Reference KB (10 core docs)', 'seedReferenceKB_')
@@ -47,6 +48,10 @@ function onOpen() {
         .addItem('Set OpenRouter LLM Key', 'menuSetOpenRouterKey')
         .addItem('Set Web Search API Key (Serper)', 'menuSetSearchKey')
         .addItem('Migrate Agents (add skills/tone columns)', 'migrateAgentsAddSkillsTone_')
+        .addItem('Migrate Agents (add skill_refs/kb_source columns)', 'migrateAgentsAddSkillRefs_')
+        .addItem('Import Skill from GitHub', 'menuImportSkillFromGithub_')
+        .addItem('Seed Example Skill (STRIDE)', 'seedExampleSkill_')
+        .addItem('List Skill Library', 'menuListSkillLibrary_')
     );
     menu.addSubMenu(
       ui.createMenu('Automations')
@@ -539,7 +544,14 @@ function getAgent(slug) {
             // absent 'skills' column/value means legacy default 'kb' only,
             // so existing agent rows keep working unmigrated.
             tone: map.tone !== undefined ? (row[map.tone] || '') : '',
-            skills: map.skills !== undefined ? (row[map.skills] || '') : ''
+            skills: map.skills !== undefined ? (row[map.skills] || '') : '',
+            // New (v1.3.0): kb_source is a free-text label (folder name/URL,
+            // "SharePoint - IDM policies", etc.) purely for admins to see
+            // where an agent's knowledge came from -- not read by the chat
+            // pipeline. skill_refs is a comma list of SkillLibrary keys to
+            // inject into this agent's system prompt (see 15_skill_library.js).
+            kb_source: map.kb_source !== undefined ? (row[map.kb_source] || '') : '',
+            skill_refs: map.skill_refs !== undefined ? (row[map.skill_refs] || '') : ''
           }
         };
       }

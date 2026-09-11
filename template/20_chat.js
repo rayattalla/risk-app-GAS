@@ -112,6 +112,17 @@ function _buildSystemPrompt_(agent, skills, email) {
     }
   }
 
+  // Skill Library (v1.3.0) -- named instruction packages attached via
+  // Agents.skill_refs, independent of the capability toggles above. Not
+  // gated by the 'skills' list since this is content, not a capability.
+  if (agent && agent.skill_refs) {
+    var skillText = _getSkillLibraryText_(agent.skill_refs);
+    if (skillText) {
+      ctx += '=== Attached Skills (' + agent.skill_refs + ') ===\n' + skillText + '\n\n' +
+             'Apply the methodology/procedure above when the user\'s request matches what it covers.\n\n';
+    }
+  }
+
   if (skills.indexOf('webpage') >= 0) {
     ctx += 'If the user pastes a URL, you may be given fetched page content under "Live Web Context" — use it, and say if it was unavailable.\n';
   }
