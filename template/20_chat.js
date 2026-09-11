@@ -73,6 +73,9 @@ function _buildSystemPrompt_(agent, skills, email) {
     ctx += 'Tone: ' + agent.tone + '\n\n';
   }
   ctx += 'Follow all LAUSD policies and the shared rules below. Be concise, professional, and cite sources or policy references when possible.\n\n';
+  ctx += 'Formatting: this chat window displays plain text only, not rendered Markdown. Never use **bold**, *italic*, # headings, or markdown ' +
+         'bullet/numbered list syntax -- they will show up as literal asterisks/hashes. For lists, use plain lines starting with "- " or "1. " ' +
+         'without any bold/italic markers.\n\n';
 
   // Scope lock (v1.3.0): the persona/personality above is the ONLY role this
   // agent may play. Without this, a user can ask an unrelated question and

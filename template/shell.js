@@ -40,7 +40,7 @@ function onOpen() {
         .addItem('Ingest built-in ITS packs', 'menuIngestBuiltin')
         .addItem('Migrate KB tabs to single KB', 'migrateKbToSingleSheet_')
         .addItem('Cleanup old KB tabs (shipping)', 'cleanupOldKbTabs_')
-        .addItem('Seed Full Reference KB (8 core docs)', 'seedReferenceKB_')
+        .addItem('Seed Full Reference KB (10 core docs)', 'seedReferenceKB_')
         .addItem('Seed Skills Catalog (implemented + proposed)', 'seedSkillsCatalog_')
         .addItem('Backfill Agent Tone (from personas)', 'backfillAgentTone_')
         .addItem('Recommend Agent Skills (webpage/search/email)', 'upgradeAgentSkills_')
