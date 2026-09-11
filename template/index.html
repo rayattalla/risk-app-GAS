@@ -102,6 +102,11 @@
             <input id="input" type="text" placeholder="Type your question..." />
             <button id="send" type="submit">Send</button>
           </form>
+          <div id="upload-row" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+            <input type="file" id="upload-file" style="font-size:12px;max-width:220px" />
+            <button id="upload-btn" type="button" style="font-size:12px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:#fff">Analyze file</button>
+            <span class="muted" style="font-size:11px;display:block;margin-top:3px">Up to 8 MB. Saved to this agent's file archive for the record.</span>
+          </div>
           <div style="text-align:right;margin-top:6px">
             <a href="#" id="email-transcript" class="muted" style="font-size:12px">Email me this chat</a>
           </div>
@@ -234,10 +239,10 @@ function loadAgent(slug) {
         renderAgentHeader(agentInfo);
         document.getElementById('chat-ui').style.display = 'flex';
         document.getElementById('agent-list').style.display = 'none';
-        // optional: greet
-        if (agentInfo.personality) {
-          // don't show full personality
-        }
+
+        const allowUpload = /^(yes|true|on)$/i.test(String(agentInfo.allow_upload || '').trim());
+        const uploadRow = document.getElementById('upload-row');
+        if (uploadRow) uploadRow.style.display = allowUpload ? 'block' : 'none';
       } catch (e) {
         showError('Agent load failed: ' + e.message);
         loadAgentList();
@@ -282,6 +287,43 @@ async function send(text) {
   }
 }
 
+const MAX_UPLOAD_BYTES = 8 * 1024 * 1024; // 8 MB -- matches the server-side cap in 16_file_upload.js
+
+function analyzeFile(file) {
+  addMessage('user', '📎 Uploaded: ' + file.name + ' (' + Math.round(file.size / 1024) + ' KB)');
+  setLoading(true);
+
+  const reader = new FileReader();
+  reader.onerror = function() {
+    addMessage('assistant', 'Error: could not read the file in the browser.');
+    setLoading(false);
+  };
+  reader.onload = function() {
+    // reader.result is a data: URL ("data:<mime>;base64,<data>") -- strip the prefix.
+    const base64 = String(reader.result).split(',')[1] || '';
+    google.script.run
+      .withSuccessHandler(function(res) {
+        setLoading(false);
+        if (!res || !res.ok) {
+          addMessage('assistant', 'Error: ' + (res && res.error || 'Upload analysis failed'));
+          return;
+        }
+        const reply = res.reply || '(no response)';
+        addMessage('assistant', reply);
+        history.push({ role: 'user', content: '[uploaded file: ' + file.name + ']' });
+        history.push({ role: 'assistant', content: reply });
+        const fileInput = document.getElementById('upload-file');
+        if (fileInput) fileInput.value = '';
+      })
+      .withFailureHandler(function(err) {
+        setLoading(false);
+        addMessage('assistant', 'Error: ' + (err && err.message || String(err)));
+      })
+      .analyzeUploadedFile(currentSlug, base64, file.name, file.type || 'application/octet-stream', history);
+  };
+  reader.readAsDataURL(file);
+}
+
 function init() {
   try {
     // whoami
@@ -318,6 +360,20 @@ function init() {
             setTimeout(function() { emailLink.textContent = 'Email me this chat'; }, 4000);
           })
           .emailTranscript(currentSlug, history);
+      });
+    }
+
+    const uploadBtn = document.getElementById('upload-btn');
+    if (uploadBtn) {
+      uploadBtn.addEventListener('click', function() {
+        const fileInput = document.getElementById('upload-file');
+        const file = fileInput && fileInput.files && fileInput.files[0];
+        if (!file) { showError('Choose a file first.'); return; }
+        if (file.size > MAX_UPLOAD_BYTES) {
+          showError('File too large (' + Math.round(file.size / 1024 / 1024) + ' MB) — 8 MB max.');
+          return;
+        }
+        analyzeFile(file);
       });
     }
 

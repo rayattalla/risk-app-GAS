@@ -49,6 +49,7 @@ function onOpen() {
         .addItem('Set Web Search API Key (Serper)', 'menuSetSearchKey')
         .addItem('Migrate Agents (add skills/tone columns)', 'migrateAgentsAddSkillsTone_')
         .addItem('Migrate Agents (add skill_refs/kb_source columns)', 'migrateAgentsAddSkillRefs_')
+        .addItem('Migrate Agents (add file-upload columns)', 'migrateAgentsAddUploadConfig_')
         .addItem('Import Skill from GitHub', 'menuImportSkillFromGithub_')
         .addItem('Seed Example Skill (STRIDE)', 'seedExampleSkill_')
         .addItem('List Skill Library', 'menuListSkillLibrary_')
@@ -551,7 +552,11 @@ function getAgent(slug) {
             // pipeline. skill_refs is a comma list of SkillLibrary keys to
             // inject into this agent's system prompt (see 15_skill_library.js).
             kb_source: map.kb_source !== undefined ? (row[map.kb_source] || '') : '',
-            skill_refs: map.skill_refs !== undefined ? (row[map.skill_refs] || '') : ''
+            skill_refs: map.skill_refs !== undefined ? (row[map.skill_refs] || '') : '',
+            // New (v1.3.0): per-agent file upload for analysis (e.g. Ultimate
+            // DAST Analyzer taking a scan report). See 16_file_upload.js.
+            allow_upload: map.allow_upload !== undefined ? (row[map.allow_upload] || '') : '',
+            upload_folder_id: map.upload_folder_id !== undefined ? (row[map.upload_folder_id] || '') : ''
           }
         };
       }
