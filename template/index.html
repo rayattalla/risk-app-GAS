@@ -5,10 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LAUSD Agent Platform</title>
   <script>
-    // NOTE: must use <?!= ?> (unescaped) here, not <?= ?> -- the escaped
-    // scriptlet HTML-entity-encodes quotes, which corrupts JSON.stringify()
-    // output sitting inside a <script> block (script content is never
-    // entity-decoded by the browser).
+    // NOTE: must use the UNESCAPED bang-equals scriptlet form here, not the
+    // plain escaped one -- the escaped form HTML-entity-encodes quotes,
+    // which corrupts JSON.stringify() output sitting inside a script block
+    // (script content is never entity-decoded by the browser). GAS's
+    // template compiler scans this whole file for scriptlet delimiters as
+    // raw text, even inside comments -- do not write the literal delimiter
+    // characters in a comment, or it gets parsed as a real (empty) scriptlet
+    // and breaks compilation. That is exactly the bug this note used to be.
     var SHELL_VERSION = <?!= JSON.stringify(SHELL_VERSION) ?>;
     var WEBAPP_URL = <?!= JSON.stringify(WEBAPP_URL) ?>;
     var ORG_NAME = <?!= JSON.stringify(ORG_NAME) ?>;
