@@ -491,6 +491,19 @@ function clearMyMemory(slug) {
 
 function listAgents() {
   try {
+    // Only the admin can browse the full roster. Everyone else reaches an
+    // agent through the specific link they were given (?agent=slug) --
+    // getAgent(slug) stays open to any @lausd.net user, this just stops
+    // one shared link from letting someone discover every other agent.
+    // Client-side hiding alone would not be a real boundary (same lesson as
+    // runDiagnostics()), so this is enforced here too, not just in the UI.
+    if (!isCurrentUserAdmin()) {
+      return {
+        ok: false,
+        restricted: true,
+        error: 'No agent specified. Use the link you were given for your assistant, or contact ' + ADMIN_EMAIL + ' for access.'
+      };
+    }
     const ss = SpreadsheetApp.openById(SHEET_ID);
     const sheet = ss.getSheetByName('Agents');
     if (!sheet) return { ok: true, agents: [] };

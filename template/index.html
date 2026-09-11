@@ -178,7 +178,7 @@ function loadAgentList() {
       clearTimeout(watchdog);
       try {
         if (!res || !res.ok) {
-          showError('Could not load agents: ' + (res && res.error || 'Failed to load agents'));
+          showError(res && res.restricted ? res.error : ('Could not load agents: ' + (res && res.error || 'Failed to load agents')));
           return;
         }
         const container = document.getElementById('agents');
