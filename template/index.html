@@ -5,14 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LAUSD Agent Platform</title>
   <script>
-    var SHELL_VERSION = <?= JSON.stringify(SHELL_VERSION) ?>;
-    var WEBAPP_URL = <?= JSON.stringify(WEBAPP_URL) ?>;
-    var ORG_NAME = <?= JSON.stringify(ORG_NAME) ?>;
-    var ORG_SHORT = <?= JSON.stringify(ORG_SHORT) ?>;
-    var PROGRAM_NAME = <?= JSON.stringify(PROGRAM_NAME) ?>;
-    var PROGRAM_SHORT = <?= JSON.stringify(PROGRAM_SHORT) ?>;
-    var AGENT_SLUG = <?= JSON.stringify(AGENT_SLUG) ?>;
-    var ADMIN_EMAIL = <?= JSON.stringify(ADMIN_EMAIL) ?>;
+    // NOTE: must use <?!= ?> (unescaped) here, not <?= ?> -- the escaped
+    // scriptlet HTML-entity-encodes quotes, which corrupts JSON.stringify()
+    // output sitting inside a <script> block (script content is never
+    // entity-decoded by the browser).
+    var SHELL_VERSION = <?!= JSON.stringify(SHELL_VERSION) ?>;
+    var WEBAPP_URL = <?!= JSON.stringify(WEBAPP_URL) ?>;
+    var ORG_NAME = <?!= JSON.stringify(ORG_NAME) ?>;
+    var ORG_SHORT = <?!= JSON.stringify(ORG_SHORT) ?>;
+    var PROGRAM_NAME = <?!= JSON.stringify(PROGRAM_NAME) ?>;
+    var PROGRAM_SHORT = <?!= JSON.stringify(PROGRAM_SHORT) ?>;
+    var AGENT_SLUG = <?!= JSON.stringify(AGENT_SLUG) ?>;
+    var ADMIN_EMAIL = <?!= JSON.stringify(ADMIN_EMAIL) ?>;
   </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
@@ -42,6 +46,8 @@
     .agent-card:hover { border-color: var(--blue); }
     .agent-card .name { font-weight: 600; font-size: 1.05rem; color: var(--dark-blue); }
     .agent-card .slug { font-size: .8rem; color: var(--muted); margin-top: 2px; }
+    .agent-card .skills { font-size: .7rem; color: var(--teal); margin-top: 4px; }
+    .agent-card .url { font-size: .68rem; color: var(--muted); margin-top: 6px; word-break: break-all; opacity: .75; }
 
     .chat-wrap { flex: 1; display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
     #chat { flex: 1; padding: 16px; overflow-y: auto; background: #fafafa; display: flex; flex-direction: column; gap: 10px; }
@@ -173,8 +179,14 @@ function loadAgentList() {
         (res.agents || []).forEach(a => {
           const card = document.createElement('a');
           card.className = 'agent-card';
-          card.href = '?agent=' + encodeURIComponent(a.slug);
-          card.innerHTML = `<div class="name">${a.name || a.slug}</div><div class="slug">${a.slug}</div>`;
+          // Absolute URL + target=_top: guarantees a real top-level navigation
+          // with the ?agent= param reaching doGet(), regardless of the
+          // sandboxed iframe this page runs inside.
+          const fullUrl = (WEBAPP_URL || '') + '?agent=' + encodeURIComponent(a.slug);
+          card.href = fullUrl;
+          card.target = '_top';
+          const skillsLine = a.skills ? `<div class="skills">${a.skills}</div>` : '';
+          card.innerHTML = `<div class="name">${a.name || a.slug}</div><div class="slug">${a.slug}</div>${skillsLine}<div class="url">${fullUrl}</div>`;
           container.appendChild(card);
         });
         document.getElementById('agent-list').style.display = 'block';

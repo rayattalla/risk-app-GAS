@@ -498,7 +498,9 @@ function listAgents() {
         out.push({
           slug: row[map.slug] || '',
           name: row[map.name] || row[map.slug] || '',
-          org: row[map.org] || 'LAUSD'
+          org: row[map.org] || 'LAUSD',
+          skills: map.skills !== undefined ? (row[map.skills] || '') : '',
+          tone: map.tone !== undefined ? (row[map.tone] || '') : ''
         });
       }
     }
