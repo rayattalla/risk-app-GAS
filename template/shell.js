@@ -253,6 +253,22 @@ function runFullDiagnosticTest_() {
     try { webUrl = ScriptApp.getService().getUrl() || ''; } catch (e) {}
     log('ScriptApp.getService().getUrl()', '', webUrl);
 
+    // Simulate an actual ?agent=security-helpdesk web request and inspect the
+    // RAW rendered HTML doGet() would send to a browser -- this is the only
+    // way to see whether the <?= JSON.stringify(AGENT_SLUG) ?> template
+    // scriptlet is embedding a clean JS string or HTML-entity-mangled garbage.
+    try {
+      const simulated = doGet({ parameter: { agent: 'security-helpdesk' } });
+      const html = simulated.getContent();
+      const idx = html.indexOf('AGENT_SLUG');
+      log('Simulated doGet(?agent=security-helpdesk) html length', '', html.length);
+      log('Raw HTML around AGENT_SLUG', '', idx >= 0 ? html.slice(Math.max(0, idx - 60), idx + 80) : '(AGENT_SLUG not found in output)');
+      const headEnd = html.indexOf('</script>');
+      log('Full head <script> block (first script tag)', '', html.slice(0, headEnd > 0 ? headEnd + 9 : 600));
+    } catch (e) {
+      log('Simulated doGet() FAILED', '', e.message || String(e));
+    }
+
   } catch (e) {
     log('FATAL ERROR', '', e.message || String(e));
     log('FATAL STACK', '', e.stack || '');
