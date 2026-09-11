@@ -41,6 +41,7 @@ function onOpen() {
         .addItem('Migrate KB tabs to single KB', 'migrateKbToSingleSheet_')
         .addItem('Cleanup old KB tabs (shipping)', 'cleanupOldKbTabs_')
         .addItem('Seed Full Reference KB (8 core docs)', 'seedReferenceKB_')
+        .addItem('Seed Skills Catalog (implemented + proposed)', 'seedSkillsCatalog_')
         .addItem('Backfill Agent Tone (from personas)', 'backfillAgentTone_')
         .addItem('Recommend Agent Skills (webpage/search/email)', 'upgradeAgentSkills_')
         .addItem('Set OpenRouter LLM Key', 'menuSetOpenRouterKey')

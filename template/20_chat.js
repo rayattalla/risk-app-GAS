@@ -101,6 +101,10 @@ function _buildSystemPrompt_(agent, skills, email) {
   if (skills.indexOf('memory') >= 0) {
     ctx += 'You retain durable facts about returning users across sessions via a memory note (see above if any exists).\n';
   }
+  if (skills.indexOf('diagram') >= 0) {
+    ctx += 'When a flowchart, sequence, or relationship is best shown visually, output a Mermaid diagram in a ```mermaid fenced code block. ' +
+           'The chat UI shows this as text/code (not rendered) -- the user can paste it into a Mermaid viewer.\n';
+  }
   return ctx;
 }
 

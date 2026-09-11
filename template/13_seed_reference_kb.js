@@ -156,3 +156,82 @@ function upgradeAgentSkills_() {
   });
   _toast_('Upgraded skills for ' + upgraded + ' agent(s) still at default "kb". Review before shipping "search" (needs Serper key).');
 }
+
+// ==========================================================================
+// SKILLS CATALOG (v1.3.0) — reference tab: what's implemented vs. possible.
+//
+// The 'implemented' skills are ported from Khoj's own ConversationCommand
+// set (src/khoj/utils/helpers.py in the local khoj-selfhosted clone at
+// C:\Users\remon.attalla\Documents\GIT\risk) plus two GAS-native additions
+// (email, and this catalog itself) that don't exist in Khoj. The 'proposed'
+// rows are the rest of Khoj's command set, evaluated for portability to
+// Apps Script -- code/research/image/operator all need infrastructure GAS
+// doesn't have (a code sandbox, an image model, browser automation), so
+// they're documented but NOT built. Don't wire one up without a SECURITY.md
+// pass first -- 'code' in particular is exactly the kind of thing that
+// bulletin exists to gate.
+// ==========================================================================
+
+var SKILLS_CATALOG = [
+  // key, status, description, source, how_to_enable
+  ['kb', 'implemented',
+    'Injects matching rows from the KB tab (slug=shared + slug=<agent>) into the system prompt. Default skill if Agents.skills is blank.',
+    'native', "Add 'kb' to the agent's skills column (or leave blank)."],
+  ['memory', 'implemented',
+    'Hourly sweep folds recent ChatLog exchanges into a short running note per (user, agent), re-injected into future sessions. No vector DB -- a sweep, not per-message.',
+    'Khoj (UserMemory, ported)', "Add 'memory' to skills, then run AGENTS -> Memory -> Install Hourly Memory Trigger once."],
+  ['webpage', 'implemented',
+    'If the user pastes a URL, fetches it, strips HTML, injects up to 4000 chars as context.',
+    'Khoj (Webpage / ReadWebpage)', "Add 'webpage' to skills."],
+  ['search', 'implemented',
+    'User prefixes a message with "search: <query>"; calls Serper.dev and injects the top results. Fails soft (tells the model search is unavailable) if no key is set.',
+    'Khoj (Online / SearchWeb)', "Add 'search' to skills, then AGENTS -> Admin + Ingest -> Set Web Search API Key (Serper)."],
+  ['email', 'implemented',
+    'Emails the current chat transcript to the REQUESTING user\'s own address only -- no arbitrary recipient, to prevent the web app relaying mail to third parties.',
+    'GAS-native (not in Khoj)', "Add 'email' to skills."],
+  ['diagram', 'implemented (v1.3.0)',
+    'Instructs the model to output a Mermaid diagram in a ```mermaid fenced block when a flowchart/relationship is best shown visually. Rendered as plain text/code in this chat UI, not drawn inline -- paste into a Mermaid viewer.',
+    'Khoj (Diagram)', "Add 'diagram' to skills."],
+  ['code', 'proposed - not built',
+    'Run a script to do calculations, parse data, or generate a chart. Khoj runs this in an ephemeral E2B or Terrarium Python sandbox (your khoj-selfhosted docker-compose already runs the Terrarium sandbox container). Apps Script has no equivalent safe sandbox -- would need to call out to an external code-exec API.',
+    'Khoj (Code / run_code)', 'NOT implemented. Needs a SECURITY.md review before building -- arbitrary code execution is the highest-risk skill on this list.'],
+  ['research', 'proposed - not built',
+    'Multi-step/iterative search+read loop for a deeper answer than one search pass. Could be approximated in GAS as a loop calling the existing webpage/search skill functions 2-3x before answering.',
+    'Khoj (Research)', 'NOT implemented.'],
+  ['image', 'not planned',
+    'Generate an illustrative image from a text description.',
+    'Khoj (Image)', 'NOT implemented -- no image-gen API wired up; out of scope for a text chat UI.'],
+  ['operator', 'not planned',
+    '"Operate a computer" -- browser/UI automation to complete a task.',
+    'Khoj (Operator)', 'NOT implemented -- outside Apps Script\'s execution model and this platform\'s security posture.'],
+  ['calendar', 'proposed - not built',
+    "Read-only lookup of the REQUESTING user's own upcoming Calendar events, mirroring the 'email' skill's self-only safety pattern.",
+    'GAS-native idea (not in Khoj)', 'NOT implemented. Needs a new calendar.readonly OAuth scope in appsscript.json -- re-authorization required.'],
+  ['gmail-search', 'proposed - not built',
+    "Read-only search of the REQUESTING user's own Gmail for context (e.g. \"did I already get an advisory about vendor X\").",
+    'GAS-native idea (not in Khoj)', 'NOT implemented. Needs a new gmail.readonly OAuth scope -- re-authorization required.']
+];
+
+function _upsertSkillsCatalogRow_(key, status, description, source, howToEnable) {
+  const sheet = _getOrCreateTab_('SkillsCatalog', ['skill_key', 'status', 'description', 'source', 'how_to_enable']);
+  const data = sheet.getDataRange().getValues();
+  const row = [key, status, description, source, howToEnable];
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === key) {
+      sheet.getRange(i + 1, 1, 1, row.length).setValues([row]);
+      return 'updated';
+    }
+  }
+  sheet.appendRow(row);
+  return 'inserted';
+}
+
+function seedSkillsCatalog_() {
+  if (!_isAdminUserForSeed()) { _toast_('Admin only.'); return; }
+  let inserted = 0, updated = 0;
+  SKILLS_CATALOG.forEach(function (row) {
+    const result = _upsertSkillsCatalogRow_(row[0], row[1], row[2], row[3], row[4]);
+    if (result === 'inserted') inserted++; else updated++;
+  });
+  _toast_('SkillsCatalog seeded: ' + inserted + ' new, ' + updated + ' updated. See the SkillsCatalog tab.');
+}
