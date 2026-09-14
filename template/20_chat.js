@@ -43,6 +43,17 @@ function chatWithAgent_(slug, history, text, email) {
     systemPrompt += '\n\n=== Live Web Context (from webpage/search skill) ===\n' + webContext;
   }
 
+  if (skills.indexOf('district-data') >= 0) {
+    var dataContext = _searchDistrictData_(text);
+    if (dataContext) {
+      systemPrompt += '\n\n=== Matching District Data (Schools/Enrollment/Jobs/Classifications/Budget/Staff) ===\n' +
+        dataContext +
+        '\n\nOnly state figures, codes, or names that appear in the rows above. If nothing matched, say the data was not found -- do not guess or estimate a value.\n';
+    } else {
+      systemPrompt += '\n\n=== District Data ===\nNo matching rows found for this question in Schools/Enrollment/Jobs/Classifications/Budget/Staff. Say so plainly rather than answering from general knowledge.\n';
+    }
+  }
+
   var messages = [{ role: 'system', content: systemPrompt }];
 
   // history arrives from the client as [{role, content}, ...]
@@ -135,6 +146,11 @@ function _buildSystemPrompt_(agent, skills, email) {
   if (skills.indexOf('diagram') >= 0) {
     ctx += 'When a flowchart, sequence, or relationship is best shown visually, output a Mermaid diagram in a ```mermaid fenced code block. ' +
            'The chat UI shows this as text/code (not rendered) -- the user can paste it into a Mermaid viewer.\n';
+  }
+  if (skills.indexOf('district-data') >= 0) {
+    ctx += 'You have keyword-searched access to LAUSD reference data (Schools, Enrollment, Jobs, Classifications, Budget, Staff) -- ' +
+           'matching rows for this message appear under "Matching District Data" if any were found. Only state figures, codes, or ' +
+           'names that actually appear there; say so plainly when nothing matched instead of guessing.\n';
   }
   return ctx;
 }

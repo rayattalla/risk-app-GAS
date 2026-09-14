@@ -286,6 +286,19 @@ function runFullDiagnosticTest_() {
       log('ChatLog row count', '', Math.max(0, clSheet.getLastRow() - 1));
     }
 
+    // District-data tabs (Schools/Enrollment/Jobs/Classifications/Budget/Staff)
+    // -- read by the 'district-data' skill (17_district_data.js), one-time
+    // snapshots with no sync. Report presence/headers/row count for each so
+    // a missing/renamed tab shows up here instead of as a silent no-match.
+    (typeof DISTRICT_DATA_TABS !== 'undefined' ? DISTRICT_DATA_TABS : []).forEach(function (tabName) {
+      const dSheet = ss.getSheetByName(tabName);
+      log(tabName + ' tab found', '', !!dSheet);
+      if (dSheet && dSheet.getLastRow() > 0) {
+        log(tabName + ' headers', '', dSheet.getRange(1, 1, 1, dSheet.getLastColumn()).getValues()[0]);
+        log(tabName + ' row count', '', Math.max(0, dSheet.getLastRow() - 1));
+      }
+    });
+
     log('AI_KEY_OPENROUTER set?', '', !!PropertiesService.getScriptProperties().getProperty('AI_KEY_OPENROUTER'));
     log('SEARCH_API_KEY_SERPER set?', '', !!PropertiesService.getScriptProperties().getProperty('SEARCH_API_KEY_SERPER'));
 
