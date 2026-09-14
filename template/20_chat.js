@@ -43,6 +43,15 @@ function chatWithAgent_(slug, history, text, email) {
     systemPrompt += '\n\n=== Live Web Context (from webpage/search skill) ===\n' + webContext;
   }
 
+  if (skills.indexOf('cve-lookup') >= 0) {
+    var cveContext = _cveLookupSkill_(text);
+    if (cveContext) {
+      systemPrompt += '\n\n=== CVE Lookup Results (NVD + CISA KEV, live) ===\n' + cveContext +
+        '\n\nUse ONLY the data above for these CVEs -- never describe a CVE from training-data memory, even ' +
+        'one you recognize. If NVD returned nothing, say the CVE could not be found rather than describing it anyway.\n';
+    }
+  }
+
   if (skills.indexOf('district-data') >= 0) {
     var dataContext = _searchDistrictData_(text);
     if (dataContext) {
@@ -151,6 +160,10 @@ function _buildSystemPrompt_(agent, skills, email) {
     ctx += 'You have keyword-searched access to LAUSD reference data (Schools, Enrollment, Jobs, Classifications, Budget, Staff) -- ' +
            'matching rows for this message appear under "Matching District Data" if any were found. Only state figures, codes, or ' +
            'names that actually appear there; say so plainly when nothing matched instead of guessing.\n';
+  }
+  if (skills.indexOf('cve-lookup') >= 0) {
+    ctx += 'If the user mentions a CVE ID, you are given live NVD + CISA KEV data for it under "CVE Lookup Results" -- your training ' +
+           'data on specific CVEs is stale and easy to hallucinate, so use ONLY that live data, never memory, for any CVE specifics.\n';
   }
   return ctx;
 }
