@@ -25,33 +25,29 @@ function onOpen() {
 
   if (isAdmin) {
     menu.addSeparator();
+    // Day-to-day operations first. "When do I use this" for each submenu:
+    // Agents      -> you added/changed an agent
+    // Knowledge Base -> you have new content to feed an agent
+    // Skill Library  -> you want to attach a reusable procedure to an agent
+    // Automations / Memory -> ongoing scheduled/behavioral features
+    // Diagnostics -> something looks wrong
+    // Setup (one-time) -> initial bring-up only, safe to ignore day to day
     menu.addSubMenu(
-      ui.createMenu('Setup & Config')
-        .addItem('Run Setup',       'menuSetup')
-        .addItem('Set Web App URL', 'menuSetWebAppUrl')
-        .addItem('Rebuild Menu (debug)', 'forceRebuildMenu')
-        .addItem('Ship Checklist',  'menuShipChecklist')
-    );
-    menu.addSubMenu(
-      ui.createMenu('Admin + Ingest')
-        .addItem('Seed pilot agents + KB', 'menuSeedPilotAgentsKB')
-        .addItem('Seed all 15 Risk agents', 'seedAllRiskAgents_')
-        .addItem('Ingest URL / paste / Drive file', 'menuIngest')
-        .addItem('Ingest built-in ITS packs', 'menuIngestBuiltin')
-        .addItem('Ingest Drive Folder (PDF/txt/md/Docs)', 'menuIngestDriveFolder_')
-        .addItem('Migrate KB tabs to single KB', 'migrateKbToSingleSheet_')
-        .addItem('Cleanup old KB tabs (shipping)', 'cleanupOldKbTabs_')
-        .addItem('Seed Full Reference KB (10 core docs)', 'seedReferenceKB_')
-        .addItem('Seed Skills Catalog (implemented + proposed)', 'seedSkillsCatalog_')
+      ui.createMenu('Agents')
+        .addItem('Add New Agent…', 'menuAddNewAgent_')
         .addItem('Backfill Agent Tone (from personas)', 'backfillAgentTone_')
         .addItem('Recommend Agent Skills (webpage/search/email)', 'upgradeAgentSkills_')
-        .addItem('Set OpenRouter LLM Key', 'menuSetOpenRouterKey')
-        .addItem('Set Web Search API Key (Serper)', 'menuSetSearchKey')
-        .addItem('Migrate Agents (add skills/tone columns)', 'migrateAgentsAddSkillsTone_')
-        .addItem('Migrate Agents (add skill_refs/kb_source columns)', 'migrateAgentsAddSkillRefs_')
-        .addItem('Migrate Agents (add file-upload columns)', 'migrateAgentsAddUploadConfig_')
+        .addItem('Run Schema Migrations (safe to re-run)', 'runAllAgentMigrations_')
+    );
+    menu.addSubMenu(
+      ui.createMenu('Knowledge Base')
+        .addItem('Ingest URL / paste / Drive file', 'menuIngest')
+        .addItem('Ingest Drive Folder (PDF/txt/md/Docs)', 'menuIngestDriveFolder_')
+        .addItem('Ingest built-in ITS packs', 'menuIngestBuiltin')
+    );
+    menu.addSubMenu(
+      ui.createMenu('Skill Library')
         .addItem('Import Skill from GitHub', 'menuImportSkillFromGithub_')
-        .addItem('Seed Example Skill (STRIDE)', 'seedExampleSkill_')
         .addItem('List Skill Library', 'menuListSkillLibrary_')
     );
     menu.addSubMenu(
@@ -68,17 +64,26 @@ function onOpen() {
         .addItem('Clear ALL Memory (compliance)', 'menuClearAllMemory_')
     );
     menu.addSubMenu(
-      ui.createMenu('Access Control')
-        .addItem('List Users', 'menuListAccess')
-    );
-    menu.addSubMenu(
-      ui.createMenu('Test Mode')
-        .addItem('Toggle Test Mode', 'menuToggleTestMode')
-        .addItem('Check Modes',      'menuCheckModes')
-    );
-    menu.addSubMenu(
       ui.createMenu('Diagnostics')
         .addItem('Run System Tests', 'menuRunTests')
+    );
+    // Initial bring-up only -- run once when standing this project up, or
+    // when deliberately re-seeding canned content. Not part of day-to-day
+    // agent/KB operations, which is why it's last and separate.
+    menu.addSubMenu(
+      ui.createMenu('Setup (one-time)')
+        .addItem('Run Setup', 'menuSetup')
+        .addItem('Rebuild Menu (debug)', 'forceRebuildMenu')
+        .addItem('Ship Checklist', 'menuShipChecklist')
+        .addItem('Set OpenRouter LLM Key', 'menuSetOpenRouterKey')
+        .addItem('Set Web Search API Key (Serper)', 'menuSetSearchKey')
+        .addItem('Seed pilot agents + KB', 'menuSeedPilotAgentsKB')
+        .addItem('Seed all 15 Risk agents', 'seedAllRiskAgents_')
+        .addItem('Seed Full Reference KB (10 core docs)', 'seedReferenceKB_')
+        .addItem('Seed Skills Catalog (implemented + proposed)', 'seedSkillsCatalog_')
+        .addItem('Seed Example Skill (STRIDE)', 'seedExampleSkill_')
+        .addItem('Migrate KB tabs to single KB', 'migrateKbToSingleSheet_')
+        .addItem('Cleanup old KB tabs (shipping)', 'cleanupOldKbTabs_')
     );
   }
 
@@ -105,6 +110,84 @@ function _toast_(msg) {
 }
 
 // ==========================================================================
+// AGENT MANAGEMENT — the two things you actually do routinely: add an
+// agent, and make sure the Agents sheet has every column current code
+// expects (skills/tone, skill_refs/kb_source, allow_upload/upload_folder_id).
+// ==========================================================================
+
+// Runs every Agents-column migration in sequence. Each one is independently
+// idempotent (checks for its own columns before adding anything), so this
+// is always safe to re-run -- the answer to "I added an agent by hand and
+// something's blank" is usually just "run this."
+function runAllAgentMigrations_() {
+  if (!_isAdminUser_()) { _toast_('Admin only.'); return; }
+  migrateAgentsAddSkillsTone_();
+  migrateAgentsAddSkillRefs_();
+  migrateAgentsAddUploadConfig_();
+  _toast_('Schema check complete.');
+}
+
+// Prompt wizard for creating a new agent row, mirroring menuAddAutomation's
+// step-by-step pattern. Refuses to touch an existing slug -- edit that row
+// directly in the Agents tab instead, this is for brand-new agents only.
+function menuAddNewAgent_() {
+  if (!_isAdminUser_()) { _toast_('Admin only.'); return; }
+  const ui = SpreadsheetApp.getUi();
+
+  const slugResp = ui.prompt('Add New Agent (1/6)', 'Slug (lowercase-with-dashes, e.g. "cloud-security"):', ui.ButtonSet.OK_CANCEL);
+  if (slugResp.getSelectedButton() !== ui.Button.OK) return;
+  const slug = slugResp.getResponseText().trim().toLowerCase().replace(/[^a-z0-9-]/g, '-');
+  if (!slug) { _toast_('Slug required.'); return; }
+  if (getAgent(slug).ok) { _toast_('Slug "' + slug + '" already exists — edit its row in the Agents tab directly instead of using this wizard.'); return; }
+
+  const nameResp = ui.prompt('Add New Agent (2/6)', 'Display name (e.g. "Cloud Security"):', ui.ButtonSet.OK_CANCEL);
+  if (nameResp.getSelectedButton() !== ui.Button.OK) return;
+  const name = nameResp.getResponseText().trim() || slug;
+
+  const personaResp = ui.prompt('Add New Agent (3/6)', 'Personality / system prompt — paste the full persona text (role, rules, tone-setting instructions):', ui.ButtonSet.OK_CANCEL);
+  if (personaResp.getSelectedButton() !== ui.Button.OK) return;
+  const personality = personaResp.getResponseText().trim();
+  if (!personality) { _toast_('Personality is required — it\'s what makes this agent behave like this agent, not a generic assistant.'); return; }
+
+  const toneResp = ui.prompt('Add New Agent (4/6)', 'Tone (optional, e.g. "Calm and procedural"):', ui.ButtonSet.OK_CANCEL);
+  if (toneResp.getSelectedButton() !== ui.Button.OK) return;
+  const tone = toneResp.getResponseText().trim();
+
+  const skillsResp = ui.prompt('Add New Agent (5/6)', 'Skills, comma-separated (blank = "kb"). Options: kb, webpage, search, memory, email, diagram. See the SkillsCatalog tab for details.', ui.ButtonSet.OK_CANCEL);
+  if (skillsResp.getSelectedButton() !== ui.Button.OK) return;
+  const skills = skillsResp.getResponseText().trim() || 'kb';
+
+  const modelResp = ui.prompt('Add New Agent (6/6)', 'Model override (blank = default):', ui.ButtonSet.OK_CANCEL);
+  if (modelResp.getSelectedButton() !== ui.Button.OK) return;
+  const model = modelResp.getResponseText().trim();
+
+  runAllAgentMigrations_(); // make sure every column this write might target actually exists
+
+  const sheet = _getSs_().getSheetByName('Agents');
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(function (h) { return String(h || '').trim().toLowerCase(); });
+  const map = {};
+  headers.forEach(function (h, i) { if (h) map[h] = i; });
+
+  const row = new Array(headers.length).fill('');
+  row[map.slug] = slug;
+  row[map.name] = name;
+  row[map.status] = 'on';
+  row[map.org] = 'LAUSD';
+  row[map.model] = model;
+  row[map.personality] = personality;
+  if (map.tone !== undefined) row[map.tone] = tone;
+  if (map.skills !== undefined) row[map.skills] = skills;
+  sheet.appendRow(row);
+
+  _toast_('Added agent "' + slug + '".');
+  SpreadsheetApp.getUi().alert(
+    'Agent Added',
+    'Created "' + name + '" (' + slug + ').\n\nOpen the bare web app URL as admin to get its shareable link, then hand that link to whoever should use it.',
+    SpreadsheetApp.getUi().ButtonSet.OK
+  );
+}
+
+// ==========================================================================
 // MENU ACTIONS — delegate to library
 // ==========================================================================
 
@@ -113,50 +196,6 @@ function menuSetup() {
   _toast_('Running setup…');
   try { _toast_(String(setup())); }
   catch (e) { _toast_('Setup failed: ' + e.message); }
-}
-
-function menuSetWebAppUrl() {
-  if (!_shellIsAdmin_()) { _toast_('Admin only.'); return; }
-  const ui = SpreadsheetApp.getUi();
-  let current = '';
-  try { current = getWebAppUrl(); } catch (e) {}
-  const resp = ui.prompt(
-    'Set Web App URL',
-    'Paste the /exec URL from Deploy → Manage deployments.\n\nCurrent: ' + (current || '(not set)'),
-    ui.ButtonSet.OK_CANCEL
-  );
-  if (resp.getSelectedButton() !== ui.Button.OK) return;
-  const url = resp.getResponseText().trim();
-  (typeof setWebAppUrl === 'function') ? setWebAppUrl(url) : null;
-  _toast_(url ? 'Web app URL saved.' : 'URL cleared.');
-}
-
-function menuListAccess() {
-  if (!_shellIsAdmin_()) { _toast_('Admin only.'); return; }
-  const res = (typeof listAccess === 'function') ? listAccess() : {success: false};
-  if (!res || !res.success) { _toast_('Failed: ' + (res && res.error)); return; }
-  const lines = (res.users || []).map(u => u.email + ' → ' + u.role);
-  SpreadsheetApp.getUi().alert(
-    'Access Control (' + lines.length + ' users)',
-    lines.length ? lines.join('\n') : '(no explicit rows — domain users default to Editor)',
-    SpreadsheetApp.getUi().ButtonSet.OK
-  );
-}
-
-function menuToggleTestMode() {
-  if (!_shellIsAdmin_()) { _toast_('Admin only.'); return; }
-  if ((typeof isTestMode === 'function') ? isTestMode() : false) {
-    (typeof disableTestMode === 'function') ? disableTestMode() : null;
-    _toast_('Test mode OFF — real emails will be sent.');
-  } else {
-    (typeof enableTestMode === 'function') ? enableTestMode() : null;
-    _toast_('Test mode ON — emails redirect to ' + ADMIN_EMAIL);
-  }
-}
-
-function menuCheckModes() {
-  (typeof checkModes === 'function') ? checkModes() : null;
-  _toast_('Modes logged — check Executions log.');
 }
 
 function menuRunTests() {
