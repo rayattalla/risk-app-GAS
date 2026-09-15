@@ -48,7 +48,24 @@ scope-lock, the plain-text formatting rule, and every district-data change.
 `template/config.js` holds `SHELL_VERSION`. Bump it on every change and say so
 in the commit message.
 
-## Unregeneratable tabs — known liability
+## Unregeneratable tabs — resolved for Schools
+
+The live Sheet's **Schools** tab is now reproducible: `scrapers/schools.py`
+downloads the CDE Public Schools and Districts file from
+`https://www.cde.ca.gov/ds/si/ds/pubschls.asp` and writes the **Schools** tab
+(CDS code, county/district/school codes, name, address, phone, grade span,
+county/district/school type, latitude/longitude).
+
+The same fetch also answers the principal-names question: the CDE directory
+file includes school administrator name fields, publicly published by the
+state. Those are written to a **Principals** tab (cds_code, school_name,
+principal_name, principal_title).
+
+**Privacy:** the CDE file also carries administrator EMAIL fields. They are
+deliberately not stored — `_build_principals_rows()` only reads name and
+title. Names and titles only.
+
+## Unregeneratable tabs — still a liability
 
 The live Sheet's **Staff** tab has 994 rows. This repo cannot reproduce that
 number: the only staff scraper (`scrapers/staff.py`) pulls three summary
@@ -69,12 +86,13 @@ that documents this and will load a source once you supply one (set
 
 | Tab | Scraper | Status |
 | --- | --- | --- |
+| Schools + Principals | `scrapers/schools.py` | New. One CDE fetch covers both. Names/titles only — emails excluded. |
 | Jobs | `scrapers/jobs.py` | Fixed: discovers open postings from 12 career-area pages, detects closed-posting body, writes `status=open|closed`. No Playwright. |
 | Classifications | `scrapers/salary_schedule.py` | Fixed: pdfplumber `extract_table()` preserves the ruled grid that pypdf flattens. Falls back to pypdf if pdfplumber is missing. |
 | Staff | `scrapers/regenerate_staff.py` | **Stub** — no reproducible source. See above. |
-| Schools / Enrollment / Budget | none in repo | CDE public downloads; no scraper committed. |
+| Enrollment / Budget | none in repo | CDE public downloads; no scraper committed. |
 
 `scrapers/_utils.py` `write_tab()` now dedupes `PROVENANCE_COLS` against the
-declared headers before concatenating. Without that, a scraper that already
-lists `source_url` in its own headers gets it twice — which is exactly how
-the original Staff column-shift bug happened.
+declared headers before concatenating. Without this, a scraper that already
+lists `source_url` in its own headers gets it twice — the same class of bug
+as the original Staff column-shift bug.
