@@ -473,6 +473,35 @@ function setup() {
   return { success: false, error: 'setup helper not found' };
 }
 
+// Client-side injection filter (index.html) calls this when it flags a
+// message as an attempt to change the agent's instructions. Logged to ChatLog
+// with status='blocked' so the false-positive rate is visible in real use.
+// Deliberately permissive on purpose: this is a UX nicety, not a security
+// boundary. The persona and the server-side prompt construction are the real
+// defense -- anything that slips past the client filter is still handled by
+// the scope lock in _buildSystemPrompt_ (20_chat.js).
+function logBlockedAttempt(slug, prompt) {
+  try {
+    var me = '';
+    try { me = Session.getActiveUser().getEmail() || ''; } catch (e) {}
+    _logChat_({
+      email: me,
+      slug: slug || '',
+      model: '',
+      skills: '',
+      prompt: prompt || '',
+      response: '',
+      status: 'blocked',
+      error: 'client-side injection filter',
+      durationMs: 0
+    });
+  } catch (e) {
+    // Logging must never break the user-facing call.
+    Logger.log('logBlockedAttempt error: ' + (e && e.message));
+  }
+  return { ok: true };
+}
+
 // Agent platform thin wrappers (MVP)
 function sendMessage(slug, history, text) {
   var started = Date.now();
