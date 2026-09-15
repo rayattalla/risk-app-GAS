@@ -47,3 +47,34 @@ scope-lock, the plain-text formatting rule, and every district-data change.
 
 `template/config.js` holds `SHELL_VERSION`. Bump it on every change and say so
 in the commit message.
+
+## Unregeneratable tabs — known liability
+
+The live Sheet's **Staff** tab has 994 rows. This repo cannot reproduce that
+number: the only staff scraper (`scrapers/staff.py`) pulls three summary
+counts from the LAUSD Fingertip Facts page and writes 3 rows. The 994-row
+version has no committed source and no committed scraper.
+
+A tab nobody can regenerate is a liability:
+- a corruption incident is unrecoverable,
+- nobody can tell whether a figure is current or stale,
+- the district-data agent will confidently cite numbers with no source.
+
+**Until a reproducible source exists, the district-data agent MUST NOT answer
+questions against the Staff tab.** `scrapers/regenerate_staff.py` is a stub
+that documents this and will load a source once you supply one (set
+`STAFF_SOURCE_PATH` to a local JSON/CSV/Excel path).
+
+## Scrapers
+
+| Tab | Scraper | Status |
+| --- | --- | --- |
+| Jobs | `scrapers/jobs.py` | Fixed: discovers open postings from 12 career-area pages, detects closed-posting body, writes `status=open|closed`. No Playwright. |
+| Classifications | `scrapers/salary_schedule.py` | Fixed: pdfplumber `extract_table()` preserves the ruled grid that pypdf flattens. Falls back to pypdf if pdfplumber is missing. |
+| Staff | `scrapers/regenerate_staff.py` | **Stub** — no reproducible source. See above. |
+| Schools / Enrollment / Budget | none in repo | CDE public downloads; no scraper committed. |
+
+`scrapers/_utils.py` `write_tab()` now dedupes `PROVENANCE_COLS` against the
+declared headers before concatenating. Without that, a scraper that already
+lists `source_url` in its own headers gets it twice — which is exactly how
+the original Staff column-shift bug happened.
