@@ -44,6 +44,7 @@ function onOpen() {
         .addItem('Ingest URL / paste / Drive file', 'menuIngest')
         .addItem('Ingest Drive Folder (PDF/txt/md/Docs)', 'menuIngestDriveFolder_')
         .addItem('Ingest built-in ITS packs', 'menuIngestBuiltin')
+        .addItem('Deduplicate KB rows (by id)', 'menuDedupKb_')
     );
     menu.addSubMenu(
       ui.createMenu('Skill Library')
