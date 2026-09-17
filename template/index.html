@@ -28,8 +28,12 @@
     @media (prefers-color-scheme: dark){ html,body{background:#0b0d12;color:#f5f5f5} }
     body{display:flex;flex-direction:column;min-height:100vh}
     .brand{padding:36px 16px 8px;text-align:center;flex-shrink:0}
-    .brand .logo{width:44px;height:44px;margin-bottom:10px}
+    .brand-marks{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:10px}
+    .brand .seal{width:56px;height:56px;display:block}
+    .brand .logo{width:44px;height:44px;display:none}
+    body.view-chat .brand .logo{display:block}
     .brand h1{margin:0;font-size:64px;font-weight:900;letter-spacing:-3.5px;line-height:1}
+    .brand h1 .risk{color:#1F3864}
     .brand h1 em{font-style:normal;color:#dc2626}
     .brand .sub{margin-top:8px;font-size:11px;font-weight:700;letter-spacing:6px;color:rgba(0,0,0,.55);text-transform:uppercase}
     .brand .agent{margin-top:14px;font-size:14px;font-weight:600;color:rgba(0,0,0,.7);min-height:1.2em}
@@ -61,13 +65,29 @@
     @media (prefers-color-scheme: dark){ .agentcard .slug{color:rgba(255,255,255,.5)} }
     footer{padding:10px 12px;text-align:center;font-size:11px;color:rgba(0,0,0,.5);border-top:1px solid rgba(0,0,0,.06);flex-shrink:0;background:#fff}
     footer a{color:inherit;text-decoration:underline}
-    @media (prefers-color-scheme: dark){ footer{color:rgba(255,255,255,.5);border-top-color:rgba(255,255,255,.08);background:#0b0d12} }
+    .chat-page-footer{display:none;text-align:center;font-size:12px;padding:4px 0 10px;color:rgba(0,0,0,.55)}
+    body.view-chat .chat-page-footer{display:block}
+    .chat-page-footer a{color:#1F3864;text-decoration:underline;font-weight:600}
+    @media (prefers-color-scheme: dark){ footer{color:rgba(255,255,255,.5);border-top-color:rgba(255,255,255,.08);background:#0b0d12} .chat-page-footer{color:rgba(245,245,245,.55)} .chat-page-footer a{color:#8FA4C8} }
   </style>
 </head>
-<body>
+<body class="view-list">
   <div class="brand">
-    <img class="logo" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiIgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIj48cmVjdCB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHJ4PSI2IiBmaWxsPSIjMUEyMzdFIi8+PHBhdGggZD0iTTYgMjBsNC0xMiA0IDcgMy05IDUgMTQiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0Y0N0IyMCIgc3Ryb2tlLXdpZHRoPSIyLjQiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjxjaXJjbGUgY3g9IjI0IiBjeT0iMTAiIHI9IjIuMiIgZmlsbD0iIzAwQTNFMCIvPjwvc3ZnPg==" alt="LAUSD Agent Platform" width="44" height="44">
-    <h1>RISK <em>AI</em></h1>
+    <div class="brand-marks">
+      <!-- Typographic LAUSD stand-in (house navy). Official seal was not in-repo; see template/assets/README.md. -->
+      <svg class="seal" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="56" height="56" role="img" aria-label="LAUSD">
+        <circle cx="32" cy="32" r="31" fill="#1F3864"/>
+        <circle cx="32" cy="32" r="26.5" fill="none" stroke="#C55A11" stroke-width="1.75"/>
+        <text x="32" y="36.5" text-anchor="middle" fill="#FFFFFF" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" letter-spacing="1.4">LAUSD</text>
+      </svg>
+      <!-- Existing in-repo Risk AI sparkline; shown on agent/chat headers only. -->
+      <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="44" height="44" role="img" aria-label="Risk AI">
+        <rect width="32" height="32" rx="6" fill="#1A237E"/>
+        <path d="M6 20l4-12 4 7 3-9 5 14" fill="none" stroke="#F47B20" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="24" cy="10" r="2.2" fill="#00A3E0"/>
+      </svg>
+    </div>
+    <h1><span class="risk">RISK</span> <em>AI</em></h1>
     <div class="sub">LAUSD Security</div>
     <div class="agent" id="agentName">&nbsp;</div>
   </div>
@@ -81,13 +101,16 @@
       <p style="text-align:center;color:rgba(0,0,0,.5);font-size:12px;margin-top:18px">Pick an agent or use <code>?agent=slug</code> in the URL.</p>
     </div>
 
-    <div id="chat-ui" style="display:none;width:100%;max-width:760px;flex:1;display:flex;flex-direction:column">
+    <div id="chat-ui" style="display:none;width:100%;max-width:760px;flex:1;flex-direction:column">
       <div class="chat" id="chat"></div>
       <div class="composer">
         <form id="form" autocomplete="off">
           <input id="input" type="text" placeholder="Type a message and press Enter..." autofocus />
           <button id="send" type="submit" aria-label="Send">&rarr;</button>
         </form>
+      </div>
+      <div class="chat-page-footer">
+        <a href="mailto:remon.attalla@lausd.net">remon.attalla@lausd.net</a>
       </div>
     </div>
 
@@ -96,7 +119,7 @@
   </main>
 
   <footer>
-    LAUSD Agent Platform &middot; <span id="footer-version"></span> &middot; <a href="mailto:remon.attalla@lausd.net">Support</a>
+    LAUSD Agent Platform &middot; <span id="footer-version"></span> &middot; <a href="mailto:remon.attalla@lausd.net">remon.attalla@lausd.net</a>
   </footer>
 
 <script>
@@ -197,6 +220,8 @@ function loadAgentList() {
           return;
         }
         renderAgentList(res.agents);
+        document.body.classList.remove('view-chat');
+        document.body.classList.add('view-list');
         document.getElementById('agent-list').style.display = 'block';
         document.getElementById('chat-ui').style.display = 'none';
       } catch (e) {
@@ -219,6 +244,8 @@ function loadAgent(slug) {
   clearError();
   currentSlug = slug;
   agentInfo = null;
+  document.body.classList.remove('view-list');
+  document.body.classList.add('view-chat');
   document.getElementById('chat-ui').style.display = 'flex';
   document.getElementById('agent-list').style.display = 'none';
   document.getElementById('chat').innerHTML = '';

@@ -1,9 +1,10 @@
 ﻿/**
  * 17_district_data.js
  *
- * Query/filter over the six reference tabs
- * (Schools, Enrollment, Jobs, Classifications, Budget, Staff) for the
- * 'district-data' skill.
+ * Query/filter over the district reference tabs
+ * (Schools, Principals, Enrollment, Jobs, Classifications, Budget) for the
+ * 'district-data' skill. Staff is intentionally not queried — that snapshot
+ * is not reproducible in-repo (see template/README.md).
  *
  * These tabs are manually refreshed snapshots — no sync/trigger here,
  * just a read. The function uses column-aware scanning: only columns
@@ -39,14 +40,24 @@
  * confidently wrong numbers from partial data.
  */
 
-var DISTRICT_DATA_TABS = ['Schools', 'Enrollment', 'Jobs', 'Classifications', 'Budget', 'Staff'];
+var DISTRICT_DATA_TABS = ['Schools', 'Principals', 'Enrollment', 'Jobs', 'Classifications', 'Budget'];
+// Staff exists on some live Sheets but MUST NOT be queried until a
+// reproducible scraper exists (scrapers/regenerate_staff.py is still a stub).
+var DISTRICT_DATA_TABS_SKIP = ['Staff'];
+// Per-agent tab allowlists. Unlisted district-data agents search all of
+// DISTRICT_DATA_TABS. school/jobs agents stay on the scraped tabs they own.
+var DISTRICT_TABS_BY_SLUG = {
+  'school-directory': ['Schools', 'Principals'],
+  'jobs-careers': ['Jobs', 'Classifications'],
+  'district-info': ['Schools', 'Principals', 'Enrollment', 'Jobs', 'Classifications', 'Budget']
+};
 var MAX_DATA_SCAN_ROWS = 5000;      // rows above which a tab is "large"; broad queries are rejected
 var MAX_DATA_ROWS_PER_TAB = 15;     // cap on MATCHING rows returned per tab
 var MAX_DISTRICT_DATA_CHARS = 8000; // overall cap on injected structured-data context
 
 // Headers that indicate searchable index columns (not free-text descriptions)
 var INDEX_COLUMN_PATTERNS = [
-  /school/i, /name/i, /code/i, /cds/i, /title/i,
+  /school/i, /name/i, /code/i, /cds/i, /title/i, /principal/i,
   /department/i, /job/i, /class/i, /position/i,
   /district/i, /region/i, /address/i, /city/i,
   /state/i, /zip/i, /phone/i, /county/i,
@@ -187,7 +198,12 @@ function _readFullRows_(sheet, rowNumbers) {
   }
   return { rows: out, readMs: Date.now() - t0 };
 }
-function _searchDistrictData_(query) {
+function _tabsForDistrictQuery_(slug) {
+  if (slug && DISTRICT_TABS_BY_SLUG[slug]) return DISTRICT_TABS_BY_SLUG[slug].slice();
+  return DISTRICT_DATA_TABS.slice();
+}
+
+function _searchDistrictData_(query, slug) {
   var qStart = Date.now();
   var queryLower = String(query || '').toLowerCase().trim();
   var phrase = queryLower.replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -199,8 +215,10 @@ function _searchDistrictData_(query) {
   var used = 0;
   var anyMatches = false;
   var timing = [];
+  var tabs = _tabsForDistrictQuery_(slug);
 
-  DISTRICT_DATA_TABS.forEach(function (tabName) {
+  tabs.forEach(function (tabName) {
+    if (DISTRICT_DATA_TABS_SKIP.indexOf(tabName) >= 0) return;
     if (used >= MAX_DISTRICT_DATA_CHARS) return;
     var sheet = ss.getSheetByName(tabName);
     if (!sheet) return;
@@ -314,7 +332,7 @@ function _searchDistrictData_(query) {
 
   if (!anyMatches) {
     return 'No district data found matching the query. Searched: ' +
-      DISTRICT_DATA_TABS.join(', ') + '.';
+      tabs.join(', ') + '.';
   }
 
   return blocks.join('\n\n');

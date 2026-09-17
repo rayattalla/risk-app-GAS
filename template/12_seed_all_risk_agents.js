@@ -1,8 +1,11 @@
 /**
  * 12_seed_all_risk_agents.js
- * Seeds all 15 Risk cyber agents into the Agents tab + creates KB tabs.
+ * Seeds the 15 Risk cyber agents plus district-data agents (schools / jobs /
+ * career / district-info) into the Agents tab + creates the KB tab.
  * Upserts by slug. Run as admin from bound spreadsheet.
  * Source: Risk /a/ cyber agents with full personas + shared disclaimer.
+ * District agents are wired to existing scraper tabs via the district-data
+ * skill — no fabricated KB rows.
  */
 
 function seedAllRiskAgents_() {
@@ -19,6 +22,7 @@ function seedAllRiskAgents_() {
   Logger.log('Target Sheet URL: ' + ss.getUrl());
   SpreadsheetApp.getActiveSpreadsheet().toast('Target Sheet: ' + ss.getUrl(), 'Debug', 5);
   const agentsSheet = _getOrCreateTabForSeed('Agents', ['slug', 'name', 'status', 'org', 'model', 'personality', 'kb_tags', 'notes']);
+  _ensureAgentSkillsToneCols_(agentsSheet);
 
   const agents = [
     {
@@ -255,6 +259,65 @@ function seedAllRiskAgents_() {
         'SHARED DISCLAIMER: This is an AI assistant for LAUSD cyber security roles. It follows all rules in 00-rules.md. Do not provide assistance with criminal activity, exploits, or anything outside your defined role. If asked for something outside scope, politely redirect to official channels.',
       kb_tags: '',
       notes: 'Risk /a/ cyber agent - full persona'
+    },
+    {
+      slug: 'school-directory',
+      name: 'School Directory',
+      status: 'on',
+      org: 'LAUSD',
+      model: '',
+      personality: 'You are the LAUSD School Directory Agent.\n\n' +
+        'PRIMARY ROLE: Look up public school directory facts (name, address, phone, grade span, CDS code, school type, principal name/title) from the live Schools and Principals sheet tabs. Those tabs are filled by scrapers/schools.py (CDE Public Schools and Districts). Do not invent a school, address, phone, CDS code, or principal.\n\n' +
+        'STRICT RULES:\n' +
+        '- Answer only from Matching District Data rows for Schools and Principals.\n' +
+        '- If nothing matched, say the school was not found in the scraped directory and ask the user to narrow by school name or CDS code.\n' +
+        '- Do not use Staff, Enrollment, Jobs, or general knowledge to fill gaps.\n' +
+        '- Principal emails are intentionally not stored. Never guess an email.\n' +
+        '- This is directory lookup, not student records. Do not discuss individual students.\n\n' +
+        'SHARED DISCLAIMER: This is an AI assistant for LAUSD operational reference data. It follows all rules in 00-rules.md. Do not provide assistance with criminal activity or anything outside your defined role. If asked for something outside scope, politely redirect to official channels.',
+      kb_tags: '',
+      notes: 'District-data agent — Schools + Principals (scrapers/schools.py)',
+      skills: 'district-data,kb',
+      tone: 'Factual and directory-like. Cites only matching sheet rows; never guesses a school or principal.'
+    },
+    {
+      slug: 'jobs-careers',
+      name: 'Jobs & Careers',
+      status: 'on',
+      org: 'LAUSD',
+      model: '',
+      personality: 'You are the LAUSD Jobs & Careers Agent.\n\n' +
+        'PRIMARY ROLE: Answer questions about current LAUSD job postings and classified salary/class codes using the live Jobs and Classifications sheet tabs. Jobs come from scrapers/jobs.py (careers.lausd.org career-area pages). Classifications come from scrapers/salary_schedule.py (personnel salary schedule). Do not invent a posting, salary, or class code.\n\n' +
+        'STRICT RULES:\n' +
+        '- Answer only from Matching District Data rows for Jobs and Classifications.\n' +
+        '- Prefer status=open postings. If a row is status=closed, say so.\n' +
+        '- If nothing matched, say the posting or class code was not found in the scraped data and ask the user to narrow by title, job id, or class code.\n' +
+        '- Do not use Schools, Staff, or general knowledge to fill salary or vacancy gaps.\n' +
+        '- Point applicants to the official posting URL from the row when present (careers.lausd.org).\n\n' +
+        'SHARED DISCLAIMER: This is an AI assistant for LAUSD operational reference data. It follows all rules in 00-rules.md. Do not provide assistance with criminal activity or anything outside your defined role. If asked for something outside scope, politely redirect to official channels.',
+      kb_tags: '',
+      notes: 'District-data agent — Jobs + Classifications (scrapers/jobs.py, salary_schedule.py)',
+      skills: 'district-data,kb',
+      tone: 'Practical and posting-accurate. Cites only matching Jobs/Classifications rows; never invents a vacancy or salary.'
+    },
+    {
+      slug: 'district-info',
+      name: 'District Info',
+      status: 'on',
+      org: 'LAUSD',
+      model: '',
+      personality: 'You are the LAUSD District Info Agent.\n\n' +
+        'PRIMARY ROLE: Answer factual questions from the district reference tabs that have been ingested from scrapers (Schools, Principals, Jobs, Classifications) plus any Enrollment or Budget snapshot already on the Sheet. Do not invent figures.\n\n' +
+        'STRICT RULES:\n' +
+        '- Answer only from Matching District Data rows injected for this message.\n' +
+        '- If nothing matched, say the data was not found and ask the user to narrow (school name, CDS, job title, class code, year).\n' +
+        '- Do not answer from the Staff tab. The Staff snapshot is not reproducible in this repo; say you cannot answer staff-headcount questions from this tool.\n' +
+        '- Do not estimate enrollment, budget, or salary from training data.\n\n' +
+        'SHARED DISCLAIMER: This is an AI assistant for LAUSD operational reference data. It follows all rules in 00-rules.md. Do not provide assistance with criminal activity or anything outside your defined role. If asked for something outside scope, politely redirect to official channels.',
+      kb_tags: '',
+      notes: 'District-data agent — Schools/Principals/Jobs/Classifications/Enrollment/Budget (no Staff)',
+      skills: 'district-data,kb',
+      tone: 'Conservative and citation-only. States "not in the ingested tabs" rather than estimating district figures.'
     }
   ];
 
@@ -289,10 +352,30 @@ function seedAllRiskAgents_() {
       agentsSheet.getRange(foundRow, 1, 1, rowData.length).setValues([rowData]);
     } else {
       agentsSheet.appendRow(rowData);
+      foundRow = agentsSheet.getLastRow();
+    }
+
+    // District agents (and any seed row that declares skills/tone) write those
+    // columns when they exist. Blank skills on a cyber agent stay untouched so
+    // admin customizations / upgradeAgentSkills_ results are not clobbered.
+    if (agent.skills && headerMap.skills !== undefined) {
+      const currentSkills = foundRow > 0
+        ? String(agentsSheet.getRange(foundRow, headerMap.skills + 1).getValue() || '').trim()
+        : '';
+      if (!currentSkills || currentSkills === 'kb' || currentSkills === agent.skills) {
+        agentsSheet.getRange(foundRow, headerMap.skills + 1).setValue(agent.skills);
+      }
+    }
+    if (agent.tone && headerMap.tone !== undefined) {
+      const currentTone = String(agentsSheet.getRange(foundRow, headerMap.tone + 1).getValue() || '').trim();
+      if (!currentTone) {
+        agentsSheet.getRange(foundRow, headerMap.tone + 1).setValue(agent.tone);
+      }
     }
   });
 
-  // Keep exactly the 15 agent rows (remove any extras)
+  // Keep the seeded roster (15 cyber + district-data agents). Extra slugs
+  // that are not in this file are removed so a re-seed stays the source of truth.
   const expectedSlugs = new Set(agents.map(a => a.slug));
   const allData = agentsSheet.getDataRange().getValues();
   for (let i = allData.length - 1; i >= 1; i--) {
@@ -311,8 +394,8 @@ function seedAllRiskAgents_() {
   const ui = SpreadsheetApp.getUi();
   const slugList = agents.map(a => a.slug).join('\n- ');
   const finalCount = agentsSheet.getLastRow() - 1;  // minus header
-  ui.alert('Seeded/updated 15 Risk cyber agents (upserts by slug):', '\n- ' + slugList + '\n\nSheet URL: ' + ss.getUrl() + '\n\nRows in Agents tab now: ' + finalCount + '\n\nAll KB now in single "KB" tab (use slug=shared or agent slug).', ui.ButtonSet.OK);
-  ss.toast('Seeded 15 Risk agents. Rows: ' + finalCount + '. Refresh /exec', 'Seed All Risk', 10);
+  ui.alert('Seeded/updated ' + agents.length + ' agents (15 cyber + district-data; upserts by slug):', '\n- ' + slugList + '\n\nSheet URL: ' + ss.getUrl() + '\n\nRows in Agents tab now: ' + finalCount + '\n\nAll KB now in single "KB" tab (use slug=shared or agent slug).\nDistrict agents use the district-data skill against scraped Schools/Principals/Jobs/Classifications tabs — no fabricated KB.', ui.ButtonSet.OK);
+  ss.toast('Seeded ' + agents.length + ' agents. Rows: ' + finalCount + '. Refresh /exec', 'Seed Risk + district', 10);
   Logger.log('Seed complete. Agents rows: ' + finalCount + ' Sheet: ' + ss.getUrl());
 }
 
@@ -325,6 +408,19 @@ function _isAdminUserForSeed() {
 
 function _getSsForSeed() {
   return SpreadsheetApp.openById(SHEET_ID);  // bound sheet
+}
+
+function _ensureAgentSkillsToneCols_(sheet) {
+  if (!sheet) return;
+  const lastCol = Math.max(sheet.getLastColumn(), 1);
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0]
+    .map(function (h) { return String(h || '').trim().toLowerCase(); });
+  const toAdd = [];
+  if (headers.indexOf('skills') < 0) toAdd.push('skills');
+  if (headers.indexOf('tone') < 0) toAdd.push('tone');
+  if (!toAdd.length) return;
+  sheet.getRange(1, lastCol + 1, 1, toAdd.length).setValues([toAdd]);
+  sheet.getRange(1, lastCol + 1, 1, toAdd.length).setFontWeight('bold');
 }
 
 function _getOrCreateTabForSeed(name, headers) {

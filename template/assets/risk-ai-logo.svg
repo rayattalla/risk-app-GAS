@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Risk AI">
+  <!-- Existing in-repo sparkline from template/index.html  not a newly invented mark. -->
+  <rect width="32" height="32" rx="6" fill="#1A237E"/>
+  <path d="M6 20l4-12 4 7 3-9 5 14" fill="none" stroke="#F47B20" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="24" cy="10" r="2.2" fill="#00A3E0"/>
+</svg>

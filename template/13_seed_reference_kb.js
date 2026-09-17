@@ -80,7 +80,10 @@ var AGENT_TONE_DEFAULTS = {
   'vulnerability-reporter': 'Clear and business-friendly. Translates technical findings into severity, impact, fix steps.',
   'ultimate-dast-analyzer': 'Business impact first, technical detail second. Solution-oriented, never exploit-oriented.',
   'ip-url-health-analyzer': 'Verdict-first and concise. States confidence level and recommended action up front.',
-  'exam-tutor': 'Encouraging and Socratic. Teaches the underlying concept rather than handing out answers.'
+  'exam-tutor': 'Encouraging and Socratic. Teaches the underlying concept rather than handing out answers.',
+  'school-directory': 'Factual and directory-like. Cites only matching sheet rows; never guesses a school or principal.',
+  'jobs-careers': 'Practical and posting-accurate. Cites only matching Jobs/Classifications rows; never invents a vacancy or salary.',
+  'district-info': 'Conservative and citation-only. States "not in the ingested tabs" rather than estimating district figures.'
 };
 
 // Only agents that plausibly need more than bare KB lookup, based on role:
@@ -94,7 +97,10 @@ var AGENT_SKILLS_RECOMMENDED = {
   'sow-generator-lausd': 'kb,email',
   'vulnerability-reporter': 'kb,webpage,search',
   'ultimate-dast-analyzer': 'kb,webpage',
-  'ip-url-health-analyzer': 'kb,webpage,search'
+  'ip-url-health-analyzer': 'kb,webpage,search',
+  'school-directory': 'district-data,kb',
+  'jobs-careers': 'district-data,kb',
+  'district-info': 'district-data,kb'
 };
 
 function _agentsSheetColMap_() {
@@ -196,8 +202,8 @@ var SKILLS_CATALOG = [
     'Auto-triggers on any CVE-YYYY-NNNNN pattern in the message (no "search:" prefix needed) -- looks it up live against NVD (description, CVSS) and the CISA Known Exploited Vulnerabilities catalog (actively-exploited status, required action, due date). Neither source needs an API key.',
     'GAS-native (not in Khoj)', "Add 'cve-lookup' to an agent's skills (built for vulnerability-reporter/ctu/ultimate-dast-analyzer). Fixes the exact 'I only know CVEs up to my training cutoff' gap the generic 'search' skill left -- that one needs a Serper key AND a literal 'search:' prefix a user won't know to type."],
   ['district-data', 'implemented (v1.4.0)',
-    'Schema-agnostic keyword search over 6 manually-refreshed LAUSD reference tabs (Schools, Enrollment, Jobs, Classifications, Budget, Staff) -- matching rows for the current message are injected as context, capped per tab. Not a real query engine -- substring match, not aggregate math.',
-    'GAS-native (not in Khoj)', "Add 'district-data' to an agent's skills (built for district-info). Tabs are one-time snapshots, refresh manually by re-pasting data -- no sync/trigger exists for these."],
+    'Schema-agnostic keyword search over ingested LAUSD reference tabs (Schools, Principals, Enrollment, Jobs, Classifications, Budget). Staff is not queried — that snapshot is not reproducible in-repo. Matching rows for the current message are injected as context, capped per tab. Not a real query engine -- substring match, not aggregate math.',
+    'GAS-native (not in Khoj)', "Add 'district-data' to an agent's skills (school-directory, jobs-careers, district-info). Refresh tabs via AGENTS → Knowledge Base → Ingest scraper workbook/folder, or by re-pasting scraper Excel output."],
   ['code', 'proposed - not built',
     'Run a script to do calculations, parse data, or generate a chart. Khoj runs this in an ephemeral E2B or Terrarium Python sandbox (your khoj-selfhosted docker-compose already runs the Terrarium sandbox container). Apps Script has no equivalent safe sandbox -- would need to call out to an external code-exec API.',
     'Khoj (Code / run_code)', 'NOT implemented. Needs a SECURITY.md review before building -- arbitrary code execution is the highest-risk skill on this list.'],

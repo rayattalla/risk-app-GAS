@@ -12,7 +12,7 @@
  */
 
 // keep-in-sync with lib/01_config.js
-var SHELL_VERSION    = '1.2.1';  // + memory skill (total-recall style, no vector DB)
+var SHELL_VERSION    = '1.5.0';  // LAUSD RISK navy + seal/logo headers + district agents/ingest
 var ADMIN_EMAIL      = 'remon.attalla@lausd.net';      // must match CONFIG.ADMIN_EMAIL in lib
 var SHEET_ID         = '16srghMJcWSWM5azEokij4010vH1sOk_Hl97o6PChJ4Q';      // must match CONFIG.BACKEND_SHEET_ID in lib (from imported seed xlsx)
 var ORG_NAME         = 'Los Angeles Unified School District';
