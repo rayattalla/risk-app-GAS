@@ -43,6 +43,8 @@ function onOpen() {
       ui.createMenu('Knowledge Base')
         .addItem('Ingest URL / paste / Drive file', 'menuIngest')
         .addItem('Ingest Drive Folder (PDF/txt/md/Docs)', 'menuIngestDriveFolder_')
+        .addItem('Ingest scraper workbook → district tabs', 'menuIngestScraperWorkbook_')
+        .addItem('Ingest scraper folder → district tabs', 'menuIngestScraperFolder_')
         .addItem('Ingest built-in ITS packs', 'menuIngestBuiltin')
         .addItem('Deduplicate KB rows (by id)', 'menuDedupKb_')
     );
@@ -79,7 +81,7 @@ function onOpen() {
         .addItem('Set OpenRouter LLM Key', 'menuSetOpenRouterKey')
         .addItem('Set Web Search API Key (Serper)', 'menuSetSearchKey')
         .addItem('Seed pilot agents + KB', 'menuSeedPilotAgentsKB')
-        .addItem('Seed all 15 Risk agents', 'seedAllRiskAgents_')
+        .addItem('Seed Risk + district agents', 'seedAllRiskAgents_')
         .addItem('Seed Full Reference KB (10 core docs)', 'seedReferenceKB_')
         .addItem('Seed Skills Catalog (implemented + proposed)', 'seedSkillsCatalog_')
         .addItem('Seed Example Skill (STRIDE)', 'seedExampleSkill_')
@@ -287,10 +289,10 @@ function runFullDiagnosticTest_() {
       log('ChatLog row count', '', Math.max(0, clSheet.getLastRow() - 1));
     }
 
-    // District-data tabs (Schools/Enrollment/Jobs/Classifications/Budget/Staff)
-    // -- read by the 'district-data' skill (17_district_data.js), one-time
-    // snapshots with no sync. Report presence/headers/row count for each so
-    // a missing/renamed tab shows up here instead of as a silent no-match.
+    // District-data tabs (Schools/Principals/Enrollment/Jobs/Classifications/Budget)
+    // -- read by the 'district-data' skill (17_district_data.js). Staff is not
+    // queried. Report presence/headers/row count for each so a missing/renamed
+    // tab shows up here instead of as a silent no-match.
     (typeof DISTRICT_DATA_TABS !== 'undefined' ? DISTRICT_DATA_TABS : []).forEach(function (tabName) {
       const dSheet = ss.getSheetByName(tabName);
       log(tabName + ' tab found', '', !!dSheet);

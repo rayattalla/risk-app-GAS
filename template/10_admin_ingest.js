@@ -50,6 +50,12 @@ function _runBasicSetup() {
   _getOrCreateTab_('Access_Control', ['Email', 'Role', 'Added_Date', 'Notes']);
   _getOrCreateTab_('Automations', AUTOMATIONS_HEADERS);
   _getOrCreateTab_('Memory', MEMORY_HEADERS);
+  // District-data tabs: create header-only if missing so scraper ingest has a
+  // landing place. Never wipes existing snapshots.
+  _getOrCreateTab_('Schools', ['cds_code','county_code','district_code','school_code','school_name','district_name','school_type','county_name','address','city','state','zip','phone','grades_span','county_district_school_type','latitude','longitude']);
+  _getOrCreateTab_('Principals', ['cds_code','school_name','principal_name','principal_title']);
+  _getOrCreateTab_('Jobs', ['job_id','title','job_type','department','salary_min','salary_max','salary_schedule','filing_date_start','filing_date_end','date_posted','valid_through','location','position_summary','duties','requirements','education','experience','work_year','status','url']);
+  _getOrCreateTab_('Classifications', ['class_code','class_title','unit','rate_type','step_1','step_2','step_3','step_4','step_5','step_6','step_7','step_8','step_9','step_10','hourly_rate','schedule_year']);
 }
 
 function menuSeedPilotAgentsKB() {
@@ -446,4 +452,271 @@ function menuDedupKb_() {
     (data.length - 1 - rowsToDelete.length) + ' rows.';
   _toast_(msg);
   SpreadsheetApp.getUi().alert('Deduplicate KB', msg, SpreadsheetApp.getUi().ButtonSet.OK);
+}
+
+// ==========================================================================
+// SCRAPER OUTPUT → DISTRICT TABS
+// Completes the existing ingest hooks: scrapers write Schools / Principals /
+// Jobs / Classifications (and optional Enrollment / Budget / Staff) locally;
+// this copies a Drive workbook, Sheet, JSON, or CSV into those live tabs.
+// Does not invent a new pipeline — same Drive + Sheet primitives as
+// menuIngest / ingestDriveFolder_.
+// ==========================================================================
+
+var DISTRICT_INGEST_TAB_ALIASES = {
+  schools: 'Schools',
+  principals: 'Principals',
+  jobs: 'Jobs',
+  classifications: 'Classifications',
+  salary: 'Classifications',
+  salary_schedule: 'Classifications',
+  enrollment: 'Enrollment',
+  budget: 'Budget',
+  staff: 'Staff'
+};
+
+function _canonicalDistrictTabName_(name) {
+  const raw = String(name || '').trim();
+  if (!raw) return '';
+  const key = raw.toLowerCase().replace(/\.(json|csv|xlsx|xls)$/i, '').replace(/[\s-]+/g, '_');
+  if (DISTRICT_INGEST_TAB_ALIASES[key]) return DISTRICT_INGEST_TAB_ALIASES[key];
+  const titled = raw.replace(/\.(json|csv|xlsx|xls)$/i, '');
+  for (const canon in DISTRICT_INGEST_TAB_ALIASES) {
+    if (DISTRICT_INGEST_TAB_ALIASES[canon].toLowerCase() === titled.toLowerCase()) {
+      return DISTRICT_INGEST_TAB_ALIASES[canon];
+    }
+  }
+  return '';
+}
+
+function _extractDriveFileId_(urlOrId) {
+  const s = String(urlOrId || '').trim();
+  const fileMatch = s.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (fileMatch) return fileMatch[1];
+  const openMatch = s.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (openMatch) return openMatch[1];
+  if (typeof _extractDriveFolderId_ === 'function' && /\/folders\//.test(s)) {
+    return _extractDriveFolderId_(s);
+  }
+  return s;
+}
+
+function _normalizeGrid_(values) {
+  let maxCols = 0;
+  values.forEach(function (r) { if (r && r.length > maxCols) maxCols = r.length; });
+  return values.map(function (r) {
+    const copy = (r || []).slice();
+    while (copy.length < maxCols) copy.push('');
+    if (copy.length > maxCols) copy.length = maxCols;
+    return copy;
+  });
+}
+
+function _replaceDistrictTab_(ss, tabName, values) {
+  if (!values || !values.length) return { tab: tabName, rows: 0 };
+  values = _normalizeGrid_(values);
+  let sheet = ss.getSheetByName(tabName);
+  if (!sheet) sheet = ss.insertSheet(tabName);
+  sheet.clearContents();
+  const chunk = 4000;
+  let written = 0;
+  for (let i = 0; i < values.length; i += chunk) {
+    const part = values.slice(i, i + chunk);
+    sheet.getRange(i + 1, 1, part.length, part[0].length).setValues(part);
+    written += part.length;
+  }
+  if (written > 0) {
+    sheet.getRange(1, 1, 1, values[0].length).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+  return { tab: tabName, rows: Math.max(0, written - 1) };
+}
+
+function _valuesFromJsonText_(text) {
+  const data = JSON.parse(text);
+  if (!Array.isArray(data) || !data.length) return [];
+  const headers = [];
+  data.forEach(function (row) {
+    if (!row || typeof row !== 'object') return;
+    Object.keys(row).forEach(function (k) {
+      if (headers.indexOf(k) < 0) headers.push(k);
+    });
+  });
+  if (!headers.length) return [];
+  const values = [headers];
+  data.forEach(function (row) {
+    values.push(headers.map(function (h) {
+      const v = row ? row[h] : '';
+      return v === null || v === undefined ? '' : v;
+    }));
+  });
+  return values;
+}
+
+function _openDriveSpreadsheet_(file) {
+  const mime = file.getMimeType();
+  const name = file.getName();
+  if (mime === MimeType.GOOGLE_SHEETS) {
+    return { ss: SpreadsheetApp.open(file), tempId: null };
+  }
+  const isExcel = mime === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+    mime === 'application/vnd.ms-excel' ||
+    /\.xlsx?$/i.test(name);
+  if (!isExcel) return null;
+  if (typeof Drive === 'undefined') {
+    throw new Error('Excel ingest needs the Drive Advanced Service (already in appsscript.json). Re-authorize if prompted.');
+  }
+  const resource = { title: 'INGEST_TEMP_' + name, mimeType: MimeType.GOOGLE_SHEETS };
+  const copied = Drive.Files.copy(resource, file.getId());
+  return { ss: SpreadsheetApp.openById(copied.id), tempId: copied.id };
+}
+
+function _ingestSheetsFromWorkbook_(sourceSs, destSs, results) {
+  sourceSs.getSheets().forEach(function (sh) {
+    const canon = _canonicalDistrictTabName_(sh.getName());
+    if (!canon) return;
+    const lastRow = sh.getLastRow();
+    const lastCol = sh.getLastColumn();
+    if (lastRow < 1 || lastCol < 1) return;
+    const values = sh.getRange(1, 1, lastRow, lastCol).getValues();
+    results.push(_replaceDistrictTab_(destSs, canon, values));
+  });
+}
+
+function ingestScraperWorkbook_(fileUrlOrId) {
+  if (!_isAdminUser_()) { _toast_('Admin only.'); return; }
+  const fileId = _extractDriveFileId_(fileUrlOrId);
+  const dest = _getSs_();
+  let file;
+  try {
+    file = DriveApp.getFileById(fileId);
+  } catch (e) {
+    _toast_('Could not open Drive file: ' + (e.message || e));
+    return;
+  }
+
+  const results = [];
+  let opened = null;
+  try {
+    opened = _openDriveSpreadsheet_(file);
+    if (opened) {
+      _ingestSheetsFromWorkbook_(opened.ss, dest, results);
+    } else {
+      const name = file.getName();
+      const canon = _canonicalDistrictTabName_(name);
+      if (!canon) {
+        throw new Error('File is not a Sheet/Excel workbook and the name does not map to a district tab (Schools, Principals, Jobs, Classifications, Enrollment, Budget, Staff).');
+      }
+      const text = file.getBlob().getDataAsString();
+      let values = [];
+      if (/\.json$/i.test(name) || file.getMimeType() === 'application/json') {
+        values = _valuesFromJsonText_(text);
+      } else {
+        values = Utilities.parseCsv(text);
+      }
+      if (values && values.length) results.push(_replaceDistrictTab_(dest, canon, values));
+    }
+  } finally {
+    if (opened && opened.tempId) {
+      try { Drive.Files.remove(opened.tempId); } catch (e2) { /* ignore temp cleanup */ }
+    }
+  }
+
+  const msg = results.length
+    ? results.map(function (r) { return r.tab + ': ' + r.rows + ' row(s)'; }).join('\n')
+    : 'No recognized district tabs in that file.';
+  _toast_(results.length ? 'Ingested scraper workbook.' : msg);
+  SpreadsheetApp.getUi().alert('Scraper workbook ingest', msg, SpreadsheetApp.getUi().ButtonSet.OK);
+}
+
+function ingestScraperFolder_(folderUrlOrId) {
+  if (!_isAdminUser_()) { _toast_('Admin only.'); return; }
+  const folderId = (typeof _extractDriveFolderId_ === 'function')
+    ? _extractDriveFolderId_(folderUrlOrId)
+    : _extractDriveFileId_(folderUrlOrId);
+  let folder;
+  try {
+    folder = DriveApp.getFolderById(folderId);
+  } catch (e) {
+    _toast_('Could not open folder: ' + (e.message || e));
+    return;
+  }
+
+  const dest = _getSs_();
+  const results = [];
+  const skipped = [];
+  const files = folder.getFiles();
+  while (files.hasNext()) {
+    const file = files.next();
+    const name = file.getName();
+    let opened = null;
+    try {
+      opened = _openDriveSpreadsheet_(file);
+      if (opened) {
+        _ingestSheetsFromWorkbook_(opened.ss, dest, results);
+        continue;
+      }
+      const canon = _canonicalDistrictTabName_(name);
+      if (!canon) {
+        skipped.push(name + ' (name does not map to a district tab)');
+        continue;
+      }
+      const mime = file.getMimeType();
+      const isText = mime === 'text/plain' || mime === 'text/csv' || mime === 'text/markdown' ||
+        mime === 'application/json' || /\.(json|csv|txt)$/i.test(name);
+      if (!isText) {
+        skipped.push(name + ' (' + mime + ')');
+        continue;
+      }
+      const text = file.getBlob().getDataAsString();
+      const values = /\.json$/i.test(name) || mime === 'application/json'
+        ? _valuesFromJsonText_(text)
+        : Utilities.parseCsv(text);
+      if (values && values.length) results.push(_replaceDistrictTab_(dest, canon, values));
+    } catch (e) {
+      skipped.push(name + ' (' + (e.message || e) + ')');
+    } finally {
+      if (opened && opened.tempId) {
+        try { Drive.Files.remove(opened.tempId); } catch (e2) { /* ignore */ }
+      }
+    }
+  }
+
+  const msg = (results.length
+    ? results.map(function (r) { return r.tab + ': ' + r.rows + ' row(s)'; }).join('\n')
+    : 'No district-tab files found.') +
+    (skipped.length ? '\n\nSkipped:\n- ' + skipped.join('\n- ') : '');
+  _toast_(results.length ? 'Ingested scraper folder.' : 'No district-tab files found.');
+  SpreadsheetApp.getUi().alert('Scraper folder ingest', msg, SpreadsheetApp.getUi().ButtonSet.OK);
+}
+
+function menuIngestScraperWorkbook_() {
+  if (!_isAdminUser_()) { _toast_('Admin only.'); return; }
+  const ui = SpreadsheetApp.getUi();
+  const res = ui.prompt(
+    'Ingest scraper workbook → district tabs',
+    'Paste a Drive file URL or ID for the scraper Excel / Google Sheet (or a schools.json / jobs.json / classifications.csv named for its tab).\n\n' +
+    'Recognized tabs: Schools, Principals, Jobs, Classifications, Enrollment, Budget, Staff.\n' +
+    'This replaces those live tabs; it does not write fabricated KB.',
+    ui.ButtonSet.OK_CANCEL
+  );
+  if (res.getSelectedButton() !== ui.Button.OK) return;
+  const input = res.getResponseText().trim();
+  if (!input) { _toast_('No file given.'); return; }
+  ingestScraperWorkbook_(input);
+}
+
+function menuIngestScraperFolder_() {
+  if (!_isAdminUser_()) { _toast_('Admin only.'); return; }
+  const ui = SpreadsheetApp.getUi();
+  const res = ui.prompt(
+    'Ingest scraper folder → district tabs',
+    'Paste a Drive folder URL or ID that holds scraper outputs (RiskAI_Agents_v2.xlsx, schools.json, jobs.json, CSV named for the tab).\n\n' +
+    'Each recognized file/sheet replaces the matching live district tab.',
+    ui.ButtonSet.OK_CANCEL
+  );
+  if (res.getSelectedButton() !== ui.Button.OK) return;
+  const input = res.getResponseText().trim();
+  if (!input) { _toast_('No folder given.'); return; }
+  ingestScraperFolder_(input);
 }

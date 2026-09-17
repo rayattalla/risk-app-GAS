@@ -53,13 +53,13 @@ function chatWithAgent_(slug, history, text, email) {
   }
 
   if (skills.indexOf('district-data') >= 0) {
-    var dataContext = _searchDistrictData_(text);
+    var dataContext = _searchDistrictData_(text, agent.slug);
     if (dataContext) {
-      systemPrompt += '\n\n=== Matching District Data (Schools/Enrollment/Jobs/Classifications/Budget/Staff) ===\n' +
+      systemPrompt += '\n\n=== Matching District Data (ingested scraper tabs for this agent) ===\n' +
         dataContext +
         '\n\nOnly state figures, codes, or names that appear in the rows above. If nothing matched, say the data was not found -- do not guess or estimate a value.\n';
     } else {
-      systemPrompt += '\n\n=== District Data ===\nNo matching rows found for this question in Schools/Enrollment/Jobs/Classifications/Budget/Staff. Say so plainly rather than answering from general knowledge.\n';
+      systemPrompt += '\n\n=== District Data ===\nNo matching rows found for this question in the ingested district tabs for this agent. Say so plainly rather than answering from general knowledge.\n';
     }
   }
 
@@ -157,9 +157,9 @@ function _buildSystemPrompt_(agent, skills, email) {
            'The chat UI shows this as text/code (not rendered) -- the user can paste it into a Mermaid viewer.\n';
   }
   if (skills.indexOf('district-data') >= 0) {
-    ctx += 'You have keyword-searched access to LAUSD reference data (Schools, Enrollment, Jobs, Classifications, Budget, Staff) -- ' +
+    ctx += 'You have keyword-searched access to ingested LAUSD reference tabs (Schools, Principals, Jobs, Classifications, and related snapshots) -- ' +
            'matching rows for this message appear under "Matching District Data" if any were found. Only state figures, codes, or ' +
-           'names that actually appear there; say so plainly when nothing matched instead of guessing.\n';
+           'names that actually appear there; say so plainly when nothing matched instead of guessing. Do not answer from the Staff tab.\n';
   }
   if (skills.indexOf('cve-lookup') >= 0) {
     ctx += 'If the user mentions a CVE ID, you are given live NVD + CISA KEV data for it under "CVE Lookup Results" -- your training ' +
