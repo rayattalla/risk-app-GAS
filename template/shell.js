@@ -72,6 +72,16 @@ function onOpen() {
       ui.createMenu('Diagnostics')
         .addItem('Run System Tests', 'menuRunTests')
     );
+    // RiskAI v2.0 upgrade pack (2026-09-18): separate from day-to-day
+    // operations on purpose. Step 1 (setup) only ever creates tabs and
+    // never touches Agents. Step 2 (promote) mutates the live Agents tab --
+    // always backs itself up first, but review the Agents_v2_staging diff
+    // before running it, per riskai-deploy/CLAUDE.md.
+    menu.addSubMenu(
+      ui.createMenu('RiskAI v2.0 Upgrade')
+        .addItem('1. Run Setup Upgrade Pack (creates new tabs only)', 'setupUpgradePack')
+        .addItem('2. Promote Agents to v2 (review staging first!)', 'promoteAgentsV2')
+    );
     // Initial bring-up only -- run once when standing this project up, or
     // when deliberately re-seeding canned content. Not part of day-to-day
     // agent/KB operations, which is why it's last and separate.
@@ -527,18 +537,24 @@ function sendMessage(slug, history, text) {
     }
   } catch (e) {}
 
+  // RiskAI v2.0 guardrails (25_riskai_guardrails.js): redact secrets/PII from
+  // ChatLog only -- the reply returned to the client below is never touched,
+  // so the user still sees their real answer. No-op (identity function) until
+  // that file is pushed.
+  var _redact = (typeof redactForLog_ === 'function') ? redactForLog_ : function (s) { return s; };
+
   try {
     var reply = chatWithAgent_(slug, history, text, email);
     _logChat_({
       email: email, slug: slug, model: agentModel, skills: agentSkills,
-      prompt: text, response: reply,
+      prompt: _redact(text), response: _redact(reply),
       status: 'ok', durationMs: Date.now() - started
     });
     return { ok: true, reply: reply };
   } catch (e) {
     _logChat_({
       email: email, slug: slug, model: agentModel, skills: agentSkills,
-      prompt: text, response: '',
+      prompt: _redact(text), response: '',
       status: 'error', error: e.message || String(e),
       durationMs: Date.now() - started
     });

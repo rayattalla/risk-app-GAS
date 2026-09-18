@@ -125,6 +125,11 @@ function analyzeUploadedFile(slug, base64Data, filename, mimeType, history) {
     (truncated ? ' Only the first ' + MAX_UPLOAD_TEXT_CHARS + ' characters are included below (the file is longer) -- note that limit if it affects your analysis.' : '') +
     '\n\n=== File content ===\n' + textForModel;
 
+  // RiskAI v2.0 guardrails (25_riskai_guardrails.js): redact the reply before
+  // it hits ChatLog -- an uploaded scan report can easily contain a real
+  // secret that the model then quotes back. No-op until that file is pushed.
+  var _redact = (typeof redactForLog_ === 'function') ? redactForLog_ : function (s) { return s; };
+
   try {
     var reply = chatWithAgent_(slug, history || [], prompt, email);
     // Short synthetic prompt in ChatLog, not the full file content -- the
@@ -132,7 +137,7 @@ function analyzeUploadedFile(slug, base64Data, filename, mimeType, history) {
     // and avoids duplicating potentially sensitive scan data a second time.
     _logChat_({
       email: email, slug: slug, model: agent.model || '', skills: agent.skills || '',
-      prompt: '[uploaded file: ' + filename + ', ' + Math.round(bytes.length / 1024) + ' KB]', response: reply,
+      prompt: '[uploaded file: ' + filename + ', ' + Math.round(bytes.length / 1024) + ' KB]', response: _redact(reply),
       status: 'ok', durationMs: Date.now() - started
     });
     return { ok: true, reply: reply, savedUrl: savedUrl };

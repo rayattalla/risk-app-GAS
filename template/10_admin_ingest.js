@@ -399,9 +399,14 @@ function _headerMapForMigrate_(sheet) {
 }
 
 // ==========================================================================
-// DEDUPLICATE KB by id: for each duplicate id, keep the row with the longest
-// body (most complete content) and delete the rest. Re-ingestion appends
-// rather than upserts, so duplicate ids accumulate over time.
+// DEDUPLICATE KB by id: for each duplicate id, keep the LAST (most recently
+// appended) row and delete the earlier ones. Every ingest path (menuIngest,
+// Drive-folder ingest, reference-KB seed) only ever appendRow()s -- there is
+// no in-place update -- so when an id repeats, the later row is the more
+// recent edit. This deliberately does NOT prefer the longest body: a
+// corrected re-ingestion is often *shorter* than what it's fixing (e.g.
+// replacing a wrong hardcoded bulletin number with a shorter, correct
+// pointer), and picking by length would silently discard the correction.
 // ==========================================================================
 function menuDedupKb_() {
   if (!_isAdminUser_()) { _toast_('Admin only'); return; }
@@ -410,27 +415,23 @@ function menuDedupKb_() {
   if (!kb || kb.getLastRow() < 2) { _toast_('KB tab is empty.'); return; }
 
   const data = kb.getDataRange().getValues();
-  const byId = {}; // id -> { sheetRow, bodyLen }
-  const rowsToDelete = [];
+  const lastRowForId = {}; // id -> latest sheetRow seen so far
   const dupIds = new Set();
 
   for (let i = 1; i < data.length; i++) { // skip header
     const sheetRow = i + 1;
     const id = String(data[i][0] || '').trim();
-    const body = String(data[i][3] || '');
     if (!id) continue;
-    if (!byId[id]) {
-      byId[id] = { sheetRow: sheetRow, bodyLen: body.length };
-      continue;
-    }
-    dupIds.add(id);
-    // duplicate id — keep whichever has the longer body, delete the other
-    if (body.length > byId[id].bodyLen) {
-      rowsToDelete.push(byId[id].sheetRow);
-      byId[id] = { sheetRow: sheetRow, bodyLen: body.length };
-    } else {
-      rowsToDelete.push(sheetRow);
-    }
+    if (lastRowForId[id] !== undefined) dupIds.add(id);
+    lastRowForId[id] = sheetRow; // later row always wins, since we scan top to bottom
+  }
+
+  const keepRows = new Set(Object.values(lastRowForId));
+  const rowsToDelete = [];
+  for (let i = 1; i < data.length; i++) {
+    const sheetRow = i + 1;
+    const id = String(data[i][0] || '').trim();
+    if (id && !keepRows.has(sheetRow)) rowsToDelete.push(sheetRow);
   }
 
   if (!rowsToDelete.length) {
@@ -442,7 +443,7 @@ function menuDedupKb_() {
   rowsToDelete.sort((a, b) => b - a).forEach(r => kb.deleteRow(r));
 
   const msg = 'KB had ' + dupIds.size + ' duplicate id(s), ' + rowsToDelete.length +
-    ' extra row(s) deleted (kept the longest body per id). KB now has ' +
+    ' earlier row(s) deleted (kept the most recently appended row per id). KB now has ' +
     (data.length - 1 - rowsToDelete.length) + ' rows.';
   _toast_(msg);
   SpreadsheetApp.getUi().alert('Deduplicate KB', msg, SpreadsheetApp.getUi().ButtonSet.OK);
