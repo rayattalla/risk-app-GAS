@@ -40,10 +40,14 @@ function onOpen() {
         .addItem('Run Schema Migrations (safe to re-run)', 'runAllAgentMigrations_')
     );
     menu.addSubMenu(
-      ui.createMenu('Knowledge Base')
+      ui.createMenu('Ingest')
+        .addItem('Bulletins (scrape LAUSD bulletin pages)', 'menuIngestBulletins')
+        .addItem('Procurements (scrape RFP repository)', 'menuIngestProcurements')
+        .addSeparator()
         .addItem('Ingest URL / paste / Drive file', 'menuIngest')
         .addItem('Ingest Drive Folder (PDF/txt/md/Docs)', 'menuIngestDriveFolder_')
         .addItem('Ingest built-in ITS packs', 'menuIngestBuiltin')
+        .addSeparator()
         .addItem('Deduplicate KB rows (by id)', 'menuDedupKb_')
     );
     menu.addSubMenu(
@@ -79,7 +83,7 @@ function onOpen() {
         .addItem('Set OpenRouter LLM Key', 'menuSetOpenRouterKey')
         .addItem('Set Web Search API Key (Serper)', 'menuSetSearchKey')
         .addItem('Seed pilot agents + KB', 'menuSeedPilotAgentsKB')
-        .addItem('Seed all 15 Risk agents', 'seedAllRiskAgents_')
+        .addItem('Seed all Risk + Policy/HR agents', 'seedAllRiskAgents_')
         .addItem('Seed Full Reference KB (10 core docs)', 'seedReferenceKB_')
         .addItem('Seed Skills Catalog (implemented + proposed)', 'seedSkillsCatalog_')
         .addItem('Seed Example Skill (STRIDE)', 'seedExampleSkill_')

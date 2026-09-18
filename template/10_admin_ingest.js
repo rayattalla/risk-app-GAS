@@ -74,7 +74,7 @@ function _seedPilot() {
       status: 'on',
       org: 'LAUSD',
       model: '',
-      personality: 'You are the LAUSD Security Helpdesk Agent. Helpful, patient. Guide through account recovery, MFA, access issues using approved channels only. Use MyLogin, 5200-2, BUL-999.16. Never give passwords. Verify identity first. Be empathetic. End with offer for more help.',
+      personality: 'You are the LAUSD Security Helpdesk Agent. Helpful, patient. Guide through account recovery, MFA, access issues using approved channels only. Use MyLogin, 5200-2. Verify identity first. Be empathetic. End with offer for more help.',
       kb_tags: '',
       notes: 'pilot'
     },
@@ -122,7 +122,7 @@ function _seedPilot() {
     ['rule-01', 'shared', 'Escalation', 'For breaches or student data, escalate via official channels.', 'escalation'],
     ['hd-01', 'security-helpdesk', 'MyLogin', 'Use https://mylogin.lausd.net for password resets. For lockouts call (213) 241-5200 option 2.', 'mylogin,reset'],
     ['hd-02', 'security-helpdesk', '5200-2 Form', 'For account issues use form 5200-2. Never reset without verification.', 'form,access'],
-    ['grc-01', 'grc', 'BUL-999.16', 'Data classification and protection policy. All systems must comply.', 'policy,data'],
+    ['grc-01', 'grc', 'Data Classification', 'Data classification and protection policy. All systems must comply. See the Bulletins tab for current bulletin numbers.', 'policy,data'],
     ['grc-02', 'grc', 'Vendor Checklist', 'Use 04-vendor-arb-checklist.md. Require classification, contract, CISO signoff for high risk.', 'vendor,arb'],
     ['ctu-01', 'ctu', 'Phish Flags', 'Urgency + off-domain link + request for creds = phish. Report to security.', 'phish,report'],
     ['ctu-02', 'ctu', 'Sources', 'Always cross ref CISA, MSRC, NVD. Provide patch/block/monitor steps.', 'intel,sources']
@@ -218,7 +218,7 @@ function _getBuiltinPack(pack) {
     'S — Spoofing: an attacker impersonates a user, device, or process. Mitigate with strong auth, MFA, mutual TLS, signed tokens.\n' +
     'T — Tampering: unauthorized modification of data or code, in transit or at rest. Mitigate with integrity checks, digital signatures, checksums, access controls, audit logging.\n' +
     'R — Repudiation: a party denies performing an action and there is no proof otherwise. Mitigate with signed audit logs, timestamps, non-repudiation controls.\n' +
-    'I — Information Disclosure: exposure of data to unauthorized parties. Mitigate with encryption at rest/in transit, least-privilege access, data classification (see BUL-999.16).\n' +
+    'I — Information Disclosure: exposure of data to unauthorized parties. Mitigate with encryption at rest/in transit, least-privilege access, data classification (per current LAUSD data classification bulletin — see Bulletins tab).\n' +
     'D — Denial of Service: degrading or blocking availability. Mitigate with rate limiting, redundancy, capacity planning, DDoS protection.\n' +
     'E — Elevation of Privilege: gaining higher permissions than authorized. Mitigate with least privilege, input validation, sandboxing, regular privilege reviews.\n' +
     'Workflow: (1) diagram the system and trust boundaries, (2) walk each element and data flow against all 6 STRIDE categories, (3) rate likelihood/impact, (4) map each finding to a mitigation and an owner, (5) track remediation to closure.';

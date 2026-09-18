@@ -55,11 +55,18 @@ function chatWithAgent_(slug, history, text, email) {
   if (skills.indexOf('district-data') >= 0) {
     var dataContext = _searchDistrictData_(text);
     if (dataContext) {
-      systemPrompt += '\n\n=== Matching District Data (Schools/Enrollment/Jobs/Classifications/Budget/Staff) ===\n' +
+      systemPrompt += '\n\n=== Matching District Data (Schools/Enrollment/Jobs/Classifications/Budget/Staff/Principals) ===\n' +
         dataContext +
         '\n\nOnly state figures, codes, or names that appear in the rows above. If nothing matched, say the data was not found -- do not guess or estimate a value.\n';
     } else {
-      systemPrompt += '\n\n=== District Data ===\nNo matching rows found for this question in Schools/Enrollment/Jobs/Classifications/Budget/Staff. Say so plainly rather than answering from general knowledge.\n';
+      systemPrompt += '\n\n=== District Data ===\nNo matching rows found for this question in Schools/Enrollment/Jobs/Classifications/Budget/Staff/Principals. Say so plainly rather than answering from general knowledge.\n';
+    }
+  }
+
+  if (skills.indexOf('bul-lookup') >= 0) {
+    var bulContext = _bulLookupSkill_(text);
+    if (bulContext) {
+      systemPrompt += '\n\n=== Bulletin Lookup Results (live from Bulletins tab) ===\n' + bulContext + '\n';
     }
   }
 
@@ -157,13 +164,16 @@ function _buildSystemPrompt_(agent, skills, email) {
            'The chat UI shows this as text/code (not rendered) -- the user can paste it into a Mermaid viewer.\n';
   }
   if (skills.indexOf('district-data') >= 0) {
-    ctx += 'You have keyword-searched access to LAUSD reference data (Schools, Enrollment, Jobs, Classifications, Budget, Staff) -- ' +
-           'matching rows for this message appear under "Matching District Data" if any were found. Only state figures, codes, or ' +
-           'names that actually appear there; say so plainly when nothing matched instead of guessing.\n';
+    ctx += 'You have keyword-searched access to LAUSD reference data (Schools, Enrollment, Jobs, Classifications, Budget, Staff, Principals) -- ' +
+      'matching rows for this message appear under "Matching District Data" if any were found. Only state figures, codes, or ' +
+      'names that actually appear there; say so plainly when nothing matched instead of guessing.\n';
   }
   if (skills.indexOf('cve-lookup') >= 0) {
     ctx += 'If the user mentions a CVE ID, you are given live NVD + CISA KEV data for it under "CVE Lookup Results" -- your training ' +
            'data on specific CVEs is stale and easy to hallucinate, so use ONLY that live data, never memory, for any CVE specifics.\n';
+  }
+  if (skills.indexOf('bul-lookup') >= 0) {
+    ctx += 'If the user mentions a bulletin number (BUL-####.# or REF-####.#), you are given live lookup results from the Bulletins tab under "Bulletin Lookup Results" -- your training data on specific bulletin numbers is stale and easy to hallucinate, so use ONLY that live data, never memory, for any bulletin specifics.\n';
   }
   return ctx;
 }

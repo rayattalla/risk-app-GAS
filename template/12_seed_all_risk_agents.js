@@ -1,8 +1,12 @@
 /**
  * 12_seed_all_risk_agents.js
- * Seeds all 15 Risk cyber agents into the Agents tab + creates KB tabs.
- * Upserts by slug. Run as admin from bound spreadsheet.
- * Source: Risk /a/ cyber agents with full personas + shared disclaimer.
+ * Seeds all Risk cyber agents + general-audience data agents into the
+ * Agents tab + creates KB tabs. Upserts by slug. Run as admin from bound
+ * spreadsheet.
+ * Source: Risk /a/ cyber agents with full personas + shared disclaimer,
+ * plus general LAUSD-staff agents added 2026-09-18 for the Bulletins and
+ * district-data datasets (not cyber-security scoped, so they carry their
+ * own disclaimer instead of the shared cyber one).
  */
 
 function seedAllRiskAgents_() {
@@ -33,7 +37,7 @@ function seedAllRiskAgents_() {
         '- Never give direct passwords, reset codes, or perform actions without proper identity verification.\n' +
         '- Always start with empathy and clear next steps.\n' +
         '- Direct users to MyLogin portal or (213) 241-5200 option 2 for lockouts.\n' +
-        '- Reference BUL-999.16 and form 5200-2 when appropriate.\n' +
+        '- Reference data classification policy (see Bulletins tab) and form 5200-2 when appropriate.\n' +
         '- End every response with: "Is there anything else I can help with?"\n\n' +
         'SHARED DISCLAIMER: This is an AI assistant for LAUSD cyber security roles. It follows all rules in 00-rules.md. Do not provide assistance with criminal activity, exploits, or anything outside your defined role. If asked for something outside scope, politely redirect to official channels.',
       kb_tags: '',
@@ -255,6 +259,40 @@ function seedAllRiskAgents_() {
         'SHARED DISCLAIMER: This is an AI assistant for LAUSD cyber security roles. It follows all rules in 00-rules.md. Do not provide assistance with criminal activity, exploits, or anything outside your defined role. If asked for something outside scope, politely redirect to official channels.',
       kb_tags: '',
       notes: 'Risk /a/ cyber agent - full persona'
+    },
+    {
+      slug: 'policy-bulletin-navigator',
+      name: 'Policy & Bulletin Navigator',
+      status: 'on',
+      org: 'LAUSD',
+      model: '',
+      personality: 'You are the LAUSD Policy & Bulletin Navigator.\n\n' +
+        'PRIMARY ROLE: Help any LAUSD staff member find and understand district Bulletins (BUL-) and Reference Guides (REF-) -- policy, HR, safety, and administrative topics, not just cybersecurity.\n\n' +
+        'STRICT RULES:\n' +
+        '- Only state a bulletin number, title, date, or status that appears in a live Bulletin Lookup result. Never recite a bulletin number or its contents from memory -- bulletin numbers are reissued and superseded often, and a wrong number sends someone to the wrong policy.\n' +
+        '- If nothing is found for a query, say so plainly and suggest contacting IT Governance or the issuing office named in results, rather than guessing.\n' +
+        '- Explain what a bulletin covers in plain language, but do not paraphrase specific requirements as if they were quoted text unless the lookup result contains them.\n\n' +
+        'DISCLAIMER: This is an AI assistant for LAUSD staff. Do not provide assistance with anything outside your defined role. If asked for something outside scope, politely redirect to official channels.',
+      kb_tags: '',
+      notes: 'Added 2026-09-18 -- general-audience agent for the Bulletins dataset, not cyber-security scoped',
+      skills: 'bul-lookup,kb'
+    },
+    {
+      slug: 'hr-staffing-data',
+      name: 'HR & Staffing Data Assistant',
+      status: 'on',
+      org: 'LAUSD',
+      model: '',
+      personality: 'You are the LAUSD HR & Staffing Data Assistant.\n\n' +
+        'PRIMARY ROLE: Answer questions about job classifications and salary ranges, staff and principal directory lookups, and school/enrollment data using the district\'s live reference tabs (Jobs, Classifications, Staff, Principals, Schools, Enrollment, Budget).\n\n' +
+        'STRICT RULES:\n' +
+        '- Only state a name, title, salary figure, or school assignment that appears in the "Matching District Data" results for this message. Never estimate, average, or recall a figure from training-data memory -- these change and a wrong number is worse than no answer.\n' +
+        '- If nothing matched, say the data was not found in the reference tabs and suggest contacting HR directly, rather than guessing.\n' +
+        '- This assistant does not have access to confidential personnel records beyond what is in the reference tabs -- do not speculate about anything not present there.\n\n' +
+        'DISCLAIMER: This is an AI assistant for LAUSD staff. Do not provide assistance with anything outside your defined role. If asked for something outside scope, politely redirect to official channels.',
+      kb_tags: '',
+      notes: 'Added 2026-09-18 -- general-audience agent for district-data (Jobs/Classifications/Staff/Principals/etc.), not cyber-security scoped',
+      skills: 'district-data'
     }
   ];
 
@@ -292,13 +330,33 @@ function seedAllRiskAgents_() {
     }
   });
 
-  // Keep exactly the 15 agent rows (remove any extras)
+  // Keep exactly the agent rows defined above (remove any extras)
   const expectedSlugs = new Set(agents.map(a => a.slug));
   const allData = agentsSheet.getDataRange().getValues();
   for (let i = allData.length - 1; i >= 1; i--) {
     const s = String(allData[i][0] || '').trim();
     if (!expectedSlugs.has(s)) {
       agentsSheet.deleteRow(i + 1);
+    }
+  }
+
+  // Set the skills column for agents that declare one above (only new
+  // general-audience agents do -- the 15 original cyber agents keep
+  // whatever skills an admin already set live via the skills migration/
+  // backfill, untouched here).
+  const skillsColIdx = headerMap['skills'];
+  if (skillsColIdx !== undefined) {
+    const withSkills = agents.filter(a => a.skills);
+    if (withSkills.length) {
+      const refreshedData = agentsSheet.getDataRange().getValues();
+      withSkills.forEach(agent => {
+        for (let i = 1; i < refreshedData.length; i++) {
+          if (String(refreshedData[i][0] || '').trim() === agent.slug) {
+            agentsSheet.getRange(i + 1, skillsColIdx + 1).setValue(agent.skills);
+            break;
+          }
+        }
+      });
     }
   }
 
@@ -311,8 +369,8 @@ function seedAllRiskAgents_() {
   const ui = SpreadsheetApp.getUi();
   const slugList = agents.map(a => a.slug).join('\n- ');
   const finalCount = agentsSheet.getLastRow() - 1;  // minus header
-  ui.alert('Seeded/updated 15 Risk cyber agents (upserts by slug):', '\n- ' + slugList + '\n\nSheet URL: ' + ss.getUrl() + '\n\nRows in Agents tab now: ' + finalCount + '\n\nAll KB now in single "KB" tab (use slug=shared or agent slug).', ui.ButtonSet.OK);
-  ss.toast('Seeded 15 Risk agents. Rows: ' + finalCount + '. Refresh /exec', 'Seed All Risk', 10);
+  ui.alert('Seeded/updated ' + agents.length + ' agents (upserts by slug):', '\n- ' + slugList + '\n\nSheet URL: ' + ss.getUrl() + '\n\nRows in Agents tab now: ' + finalCount + '\n\nAll KB now in single "KB" tab (use slug=shared or agent slug).', ui.ButtonSet.OK);
+  ss.toast('Seeded ' + agents.length + ' agents. Rows: ' + finalCount + '. Refresh /exec', 'Seed All Risk', 10);
   Logger.log('Seed complete. Agents rows: ' + finalCount + ' Sheet: ' + ss.getUrl());
 }
 

@@ -39,7 +39,7 @@
  * confidently wrong numbers from partial data.
  */
 
-var DISTRICT_DATA_TABS = ['Schools', 'Enrollment', 'Jobs', 'Classifications', 'Budget', 'Staff'];
+var DISTRICT_DATA_TABS = ['Schools', 'Enrollment', 'Jobs', 'Classifications', 'Budget', 'Staff', 'Principals'];
 var MAX_DATA_SCAN_ROWS = 5000;      // rows above which a tab is "large"; broad queries are rejected
 var MAX_DATA_ROWS_PER_TAB = 15;     // cap on MATCHING rows returned per tab
 var MAX_DISTRICT_DATA_CHARS = 8000; // overall cap on injected structured-data context
