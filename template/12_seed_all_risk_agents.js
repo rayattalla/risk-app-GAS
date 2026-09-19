@@ -330,14 +330,18 @@ function seedAllRiskAgents_() {
     }
   });
 
-  // Keep exactly the agent rows defined above (remove any extras)
+  // Keep exactly the agent rows defined above (remove any extras).
+  // Skill agents are seeded separately (Seed skill agent) and must not be
+  // wiped when this roster refresh runs.
   const expectedSlugs = new Set(agents.map(a => a.slug));
   const allData = agentsSheet.getDataRange().getValues();
+  const typeCol = headerMap['agent_type'];
   for (let i = allData.length - 1; i >= 1; i--) {
     const s = String(allData[i][0] || '').trim();
-    if (!expectedSlugs.has(s)) {
-      agentsSheet.deleteRow(i + 1);
-    }
+    if (expectedSlugs.has(s)) continue;
+    const rowType = (typeCol !== undefined) ? String(allData[i][typeCol] || '').trim().toLowerCase() : '';
+    if (rowType === 'skill') continue;
+    agentsSheet.deleteRow(i + 1);
   }
 
   // Set the skills column for agents that declare one above (only new
