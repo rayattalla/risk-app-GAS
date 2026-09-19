@@ -2,6 +2,7 @@
  * 20_chat.js — agent chat execution
  * Stateless: reads persona + KB from the Sheet, calls the model, returns text.
  * No conversation is persisted server-side beyond the audit log.
+ * Skill agents (agent_type=skill) branch out immediately to 26_skill_agent.js.
  */
 
 var DEFAULT_MODEL = 'openai/gpt-4o-mini';   // overridable per-agent via Agents.model; confirm with Ray
@@ -27,6 +28,13 @@ function chatWithAgent_(slug, history, text, email) {
   if (!res.ok) throw new Error('Unknown agent: ' + slug);
   var agent = res.agent;
   if (agent.status !== 'on') throw new Error('Agent is disabled: ' + slug);
+
+  // Skill agents: skip persona/KB/capability skills. One early branch —
+  // implementation lives in 26_skill_agent.js so this file stays the
+  // persona-agent path. Blank agent_type is treated as "agent".
+  if (String(agent.agent_type || '').trim().toLowerCase() === 'skill') {
+    return chatWithSkillAgent_(agent, history, text, email);
+  }
 
   var skills = _parseSkills_(agent.skills);
   var systemPrompt = _buildSystemPrompt_(agent, skills, email);

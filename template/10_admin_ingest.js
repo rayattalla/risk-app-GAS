@@ -50,6 +50,9 @@ function _runBasicSetup() {
   _getOrCreateTab_('Access_Control', ['Email', 'Role', 'Added_Date', 'Notes']);
   _getOrCreateTab_('Automations', AUTOMATIONS_HEADERS);
   _getOrCreateTab_('Memory', MEMORY_HEADERS);
+  if (typeof SKILL_LIBRARY_HEADERS !== 'undefined') {
+    _getOrCreateTab_('SkillLibrary', SKILL_LIBRARY_HEADERS);
+  }
 }
 
 function menuSeedPilotAgentsKB() {

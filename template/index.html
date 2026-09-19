@@ -195,10 +195,22 @@ function renderAgentHeader(info) {
   document.getElementById('agent-name').textContent = info.name || info.slug;
   document.getElementById('agent-slug').textContent = info.slug;
   const descEl = document.getElementById('agent-desc');
+  const isSkill = String(info.agent_type || '').toLowerCase() === 'skill';
   if (descEl) {
-    const role = describeAgentRole(info.personality);
-    const datasets = describeAgentDatasets(info.skills);
-    descEl.innerHTML = (role ? role + '<br>' : '') + '<span class="datasets">Data access: ' + datasets + '</span>';
+    if (isSkill) {
+      const skill = info.default_skill ? ('Default skill: ' + info.default_skill + '. ') : '';
+      descEl.innerHTML = skill + '<span class="datasets">Skill agent — paste data; returns artifact links (no persona/KB).</span>';
+    } else {
+      const role = describeAgentRole(info.personality);
+      const datasets = describeAgentDatasets(info.skills);
+      descEl.innerHTML = (role ? role + '<br>' : '') + '<span class="datasets">Data access: ' + datasets + '</span>';
+    }
+  }
+  const input = document.getElementById('input');
+  if (input) {
+    input.placeholder = isSkill
+      ? 'Paste the data to organize…'
+      : 'Type your question...';
   }
 }
 

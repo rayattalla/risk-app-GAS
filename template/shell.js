@@ -53,7 +53,10 @@ function onOpen() {
     menu.addSubMenu(
       ui.createMenu('Skill Library')
         .addItem('Import Skill from GitHub', 'menuImportSkillFromGithub_')
+        .addItem('Import Skill from URL (zip or md)', 'menuIngestSkillFromUrl_')
+        .addItem('Import Skill from Drive (zip or md)', 'menuIngestSkillFromDrive_')
         .addItem('List Skill Library', 'menuListSkillLibrary_')
+        .addItem('Seed skill agent', 'menuSeedSkillAgent_')
     );
     menu.addSubMenu(
       ui.createMenu('Automations')
@@ -97,6 +100,7 @@ function onOpen() {
         .addItem('Seed Full Reference KB (10 core docs)', 'seedReferenceKB_')
         .addItem('Seed Skills Catalog (implemented + proposed)', 'seedSkillsCatalog_')
         .addItem('Seed Example Skill (STRIDE)', 'seedExampleSkill_')
+        .addItem('Seed skill agent', 'menuSeedSkillAgent_')
         .addItem('Migrate KB tabs to single KB', 'migrateKbToSingleSheet_')
         .addItem('Cleanup old KB tabs (shipping)', 'cleanupOldKbTabs_')
     );
@@ -139,6 +143,8 @@ function runAllAgentMigrations_() {
   migrateAgentsAddSkillsTone_();
   migrateAgentsAddSkillRefs_();
   migrateAgentsAddUploadConfig_();
+  migrateAgentsAddAgentType_();
+  migrateSkillLibraryAddOutputs_();
   _toast_('Schema check complete.');
 }
 
@@ -397,6 +403,13 @@ function doGet(e) {
   }
   if (!role) return _denyPage_();
 
+  // Skill-agent HTML artifacts (printable one-pagers). Domain-gated above.
+  if (String(params.page || '').toLowerCase() === 'skill-html' && params.id) {
+    if (typeof serveSkillHtmlPage_ === 'function') {
+      return serveSkillHtmlPage_(params.id);
+    }
+  }
+
   // normal chat UI
   // Web app URL
   let webAppUrl = '';
@@ -622,7 +635,8 @@ function listAgents() {
           name: row[map.name] || row[map.slug] || '',
           org: row[map.org] || 'LAUSD',
           skills: map.skills !== undefined ? (row[map.skills] || '') : '',
-          tone: map.tone !== undefined ? (row[map.tone] || '') : ''
+          tone: map.tone !== undefined ? (row[map.tone] || '') : '',
+          agent_type: map.agent_type !== undefined ? String(row[map.agent_type] || '').trim().toLowerCase() : ''
         });
       }
     }
@@ -671,7 +685,12 @@ function getAgent(slug) {
             // New (v1.3.0): per-agent file upload for analysis (e.g. Ultimate
             // DAST Analyzer taking a scan report). See 16_file_upload.js.
             allow_upload: map.allow_upload !== undefined ? (row[map.allow_upload] || '') : '',
-            upload_folder_id: map.upload_folder_id !== undefined ? (row[map.upload_folder_id] || '') : ''
+            upload_folder_id: map.upload_folder_id !== undefined ? (row[map.upload_folder_id] || '') : '',
+            // Skill agents (26_skill_agent.js): blank agent_type is treated as
+            // "agent" so existing persona rows are unchanged. default_skill is
+            // the SkillLibrary key used when the user does not name one.
+            agent_type: map.agent_type !== undefined ? String(row[map.agent_type] || '').trim().toLowerCase() : '',
+            default_skill: map.default_skill !== undefined ? String(row[map.default_skill] || '').trim().toLowerCase() : ''
           }
         };
       }
